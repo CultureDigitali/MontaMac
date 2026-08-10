@@ -6,11 +6,11 @@ final class ReleaseHardeningTests: XCTestCase {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     }
 
-    func testReleaseMetadataIsVersion210() throws {
+    func testReleaseMetadataIsVersion211() throws {
         let data = try Data(contentsOf: projectRoot.appendingPathComponent("Resources/Info.plist"))
         let info = try XCTUnwrap(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
-        XCTAssertEqual(info["CFBundleShortVersionString"] as? String, "2.1.0")
-        XCTAssertEqual(info["CFBundleVersion"] as? String, "4")
+        XCTAssertEqual(info["CFBundleShortVersionString"] as? String, "2.1.1")
+        XCTAssertEqual(info["CFBundleVersion"] as? String, "5")
     }
 
     func testBuildScriptsEnableHardenedRuntimeAndOptionalInstallerSigning() throws {
@@ -20,6 +20,6 @@ final class ReleaseHardeningTests: XCTestCase {
         XCTAssertTrue(appScript.contains("--options runtime"))
         XCTAssertTrue(appScript.contains("MONTAMAC_SIGN_IDENTITY"))
         XCTAssertTrue(pkgScript.contains("MONTAMAC_INSTALLER_IDENTITY"))
-        XCTAssertTrue(pkgScript.contains("MontaMac-2.1.0.pkg"))
+        XCTAssertTrue(pkgScript.contains("MontaMac-2.1.1.pkg"))
     }
 }

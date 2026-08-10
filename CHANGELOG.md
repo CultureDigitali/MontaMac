@@ -2,6 +2,19 @@
 
 All notable changes to MontaMac are documented here.
 
+## [2.1.1] - 2026-08-10
+
+### Fixed
+
+- Dashboard transfer bytes now follow live rclone statistics instead of remaining at zero.
+- Consecutive transfer updates are compacted to keep the activity store bounded.
+
+### Added
+
+- Live local VFS cache disk-usage indicator.
+- Adaptive dashboard metric grid and creator credits footer.
+- Automatic dashboard refresh in all four supported languages.
+
 ## [2.1.0] - 2026-08-10
 
 ### Added

@@ -67,17 +67,17 @@ MontaMac does not replace rclone—it makes a focused remote-drive workflow acce
 
 ## Quick start
 
-1. Download `MontaMac-2.1.0.pkg` and its checksum from the [latest release](https://github.com/CultureDigitali/MontaMac/releases/latest).
+1. Download `MontaMac-2.1.1.pkg` and its checksum from the [latest release](https://github.com/CultureDigitali/MontaMac/releases/latest).
 2. Verify the package in Terminal:
 
    ```bash
-   shasum -a 256 -c MontaMac-2.1.0.pkg.sha256
+   shasum -a 256 -c MontaMac-2.1.1.pkg.sha256
    ```
 
 3. Install MontaMac, open it from Applications and follow the guided dependency check.
 
 > [!IMPORTANT]
-> Release 2.1.0 uses Hardened Runtime but is **not notarized with an Apple Developer ID**. macOS Gatekeeper may show a warning. Install only from this repository after verifying the SHA-256 checksum.
+> Release 2.1.1 uses Hardened Runtime but is **not notarized with an Apple Developer ID**. macOS Gatekeeper may show a warning. Install only from this repository after verifying the SHA-256 checksum.
 
 ## Requirements
 
@@ -108,7 +108,7 @@ zsh Scripts/build-app.sh
 zsh Scripts/build-pkg.sh
 ```
 
-The package script creates `dist/MontaMac-2.1.0.pkg`. See [CONTRIBUTING.md](CONTRIBUTING.md) before proposing changes.
+The package script creates `dist/MontaMac-2.1.1.pkg`. See [CONTRIBUTING.md](CONTRIBUTING.md) before proposing changes.
 
 ## Roadmap and community
 
@@ -129,7 +129,7 @@ Stars, thoughtful issues, translations, tests and pull requests all help MontaMa
 2. Verifica il checksum SHA-256 con il comando mostrato sopra.
 3. Installa l’app e completa il controllo guidato di rclone e FUSE-T.
 
-La versione 2.1.0 non è notarizzata con Apple Developer ID: macOS può mostrare un avviso Gatekeeper. Scarica MontaMac esclusivamente da questa repository e verifica sempre il checksum.
+La versione 2.1.1 non è notarizzata con Apple Developer ID: macOS può mostrare un avviso Gatekeeper. Scarica MontaMac esclusivamente da questa repository e verifica sempre il checksum.
 
 ## Credits
 
