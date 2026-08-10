@@ -5,8 +5,11 @@ import Foundation
 public final class MountCoordinator: ObservableObject {
     @Published public private(set) var statuses: [UUID: MountStatus] = [:]
     @Published public private(set) var logs: [UUID: [String]] = [:]
+    @Published public private(set) var transferTotals: [UUID: Int64] = [:]
     private var processes: [UUID: Process] = [:]
     private var configurationURLs: [UUID: URL] = [:]
+    private var transferTrackers: [UUID: TransferProgressTracker] = [:]
+    private var statisticsBuffers: [UUID: String] = [:]
     private let credentials: CredentialStoring
     private let rclone: any RcloneServicing
     private let monitor: any MountMonitoring
@@ -28,6 +31,7 @@ public final class MountCoordinator: ObservableObject {
     }
 
     public func status(for connection: RemoteConnection) -> MountStatus { statuses[connection.id] ?? .disconnected }
+    public var cacheRootURL: URL { cacheRoot }
 
     public func mount(_ connection: RemoteConnection) async {
         if let error = connection.validationError { fail(connection, error); return }
@@ -47,9 +51,12 @@ public final class MountCoordinator: ObservableObject {
             try SecureFileStore.secureDirectory(cache)
             _ = try RcloneConfigurationWriter(rclone: rclone).write(connection: connection, password: password, to: config)
             configurationURLs[connection.id] = config
+            transferTotals[connection.id] = 0
+            transferTrackers[connection.id] = TransferProgressTracker()
+            statisticsBuffers[connection.id] = ""
             let process = try rclone.startMount(arguments: rclone.mountArguments(for: connection, configURL: config, cacheDirectory: cache)) { [weak self] output in
                 Task { @MainActor [weak self] in
-                    self?.append(SensitiveLogRedactor.redact(output, for: connection), for: connection)
+                    self?.consumeMountOutput(output, for: connection)
                 }
             }
             processes[connection.id] = process
@@ -95,6 +102,26 @@ public final class MountCoordinator: ObservableObject {
         if let count = logs[connection.id]?.count, count > 200 {
             logs[connection.id]?.removeFirst(count - 200)
         }
+    }
+    private func consumeMountOutput(_ output: String, for connection: RemoteConnection) {
+        append(SensitiveLogRedactor.redact(output, for: connection), for: connection)
+        var buffer = statisticsBuffers[connection.id, default: ""]
+        buffer.append(output)
+        let parts = buffer.split(omittingEmptySubsequences: false) { $0 == "\n" || $0 == "\r" }
+        guard parts.count > 1 else {
+            statisticsBuffers[connection.id] = buffer
+            return
+        }
+        for line in parts.dropLast() {
+            guard let total = RcloneTransferStatisticsParser.totalBytes(from: String(line)) else { continue }
+            var tracker = transferTrackers[connection.id, default: TransferProgressTracker()]
+            let delta = tracker.consume(totalBytes: total)
+            transferTrackers[connection.id] = tracker
+            if delta > 0 {
+                transferTotals[connection.id, default: 0] += delta
+            }
+        }
+        statisticsBuffers[connection.id] = String(parts.last ?? "")
     }
     public func reportFailure(_ message: String, for connection: RemoteConnection) { fail(connection, message) }
     public func configurationURL(for connection: RemoteConnection) -> URL { configurationDirectory.appendingPathComponent("\(connection.id.uuidString).conf") }

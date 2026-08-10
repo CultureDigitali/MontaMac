@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import MontaMacCore
 
@@ -11,6 +12,7 @@ final class AppViewModel: ObservableObject {
     @Published var showDashboard = true
     @Published var activitySummary = ActivitySummary()
     @Published var recentActivity: [ActivityEvent] = []
+    @Published var cacheBytes: Int64 = 0
     @Published var statistics: [UUID: RemoteStatistics] = [:]
     @Published var refreshingStatistics: Set<UUID> = []
     @Published var profileScope: ProfileScope = .all
@@ -20,6 +22,9 @@ final class AppViewModel: ObservableObject {
     private let credentials = CredentialStore()
     private lazy var profileSecurityCleaner = ProfileSecurityCleaner(credentials: credentials)
     private let activityStore = ActivityStore()
+    private var transferTrackers: [UUID: TransferProgressTracker] = [:]
+    private var cancellables: Set<AnyCancellable> = []
+    private var cacheRefreshTask: Task<Void, Never>?
     private let mountCompletionHandler = MountCompletionHandler { url in
         NSWorkspace.shared.open(url)
     }
@@ -29,6 +34,8 @@ final class AppViewModel: ObservableObject {
         selection = connections.first?.id
         coordinator.reconcile(connections)
         reloadDashboard()
+        observeTransferTotals()
+        refreshCacheUsage()
     }
 
     var selectedConnection: RemoteConnection? { connections.first { $0.id == selection } }
@@ -103,6 +110,43 @@ final class AppViewModel: ObservableObject {
     }
     func openInFinder() { guard let path = selectedConnection?.mountPath else { return }; NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
     func reloadDashboard() { activitySummary = (try? activityStore.summary(since: Calendar.current.date(byAdding: .day, value: -30, to: .now) ?? .distantPast)) ?? ActivitySummary(); recentActivity = (try? activityStore.recentEvents()) ?? [] }
+    private func observeTransferTotals() {
+        coordinator.$transferTotals
+            .sink { [weak self] totals in
+                Task { @MainActor [weak self] in self?.persistTransferTotals(totals) }
+            }
+            .store(in: &cancellables)
+    }
+    private func persistTransferTotals(_ totals: [UUID: Int64]) {
+        var recordedTransfer = false
+        for (connectionID, total) in totals {
+            var tracker = transferTrackers[connectionID, default: TransferProgressTracker()]
+            let delta = tracker.consume(totalBytes: total)
+            transferTrackers[connectionID] = tracker
+            guard delta > 0 else { continue }
+            try? activityStore.record(.transfer(connectionID: connectionID, bytes: delta, at: .now))
+            recordedTransfer = true
+        }
+        if recordedTransfer {
+            reloadDashboard()
+            refreshCacheUsage()
+        }
+    }
+    func refreshDashboardMetrics() {
+        reloadDashboard()
+        refreshCacheUsage()
+    }
+    private func refreshCacheUsage() {
+        cacheRefreshTask?.cancel()
+        let cacheRoot = coordinator.cacheRootURL
+        cacheRefreshTask = Task { [weak self] in
+            let bytes = await Task.detached(priority: .utility) {
+                (try? DirectorySizeService().allocatedBytes(at: cacheRoot)) ?? 0
+            }.value
+            guard !Task.isCancelled else { return }
+            self?.cacheBytes = bytes
+        }
+    }
     func recordMounted(_ connection: RemoteConnection) {
         if let index = connections.firstIndex(where: { $0.id == connection.id }) {
             connections[index].markUsed()

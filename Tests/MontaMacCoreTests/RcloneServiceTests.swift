@@ -17,5 +17,10 @@ final class RcloneServiceTests: XCTestCase {
         XCTAssertTrue(arguments.contains("--vfs-cache-max-age"))
         XCTAssertTrue(arguments.contains("1h"))
         XCTAssertTrue(arguments.contains("/tmp/cache"))
+        XCTAssertTrue(arguments.contains("--stats"))
+        XCTAssertTrue(arguments.contains("5s"))
+        XCTAssertTrue(arguments.contains("--stats-one-line"))
+        XCTAssertTrue(arguments.contains("--stats-log-level"))
+        XCTAssertTrue(arguments.contains("NOTICE"))
     }
 }

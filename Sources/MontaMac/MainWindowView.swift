@@ -20,7 +20,15 @@ struct MainWindowView: View {
             }
         } detail: {
             if viewModel.showDashboard || viewModel.selectedConnection == nil {
-                DashboardView(summary: viewModel.activitySummary, events: viewModel.recentActivity, connections: viewModel.connections, onAdd: viewModel.addConnection, onToggleProfile: viewModel.selectAndToggleMount)
+                DashboardView(
+                    summary: viewModel.activitySummary,
+                    events: viewModel.recentActivity,
+                    connections: viewModel.connections,
+                    cacheBytes: viewModel.cacheBytes,
+                    onAdd: viewModel.addConnection,
+                    onToggleProfile: viewModel.selectAndToggleMount,
+                    onRefresh: viewModel.refreshDashboardMetrics
+                )
             } else if let connection = viewModel.selectedConnection {
                 ConnectionDetailView(connection: connection, viewModel: viewModel)
             }

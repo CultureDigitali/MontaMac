@@ -13,12 +13,12 @@ ditto --norsrc --noextattr --noqtn --noacl "$ROOT_DIR/MontaMac.app" "$STAGING_DI
 PKGBUILD_ARGS=(
   --root "$STAGING_DIR"
   --identifier "local.montamac.app"
-  --version "2.1.0"
+  --version "2.1.1"
   --scripts "$ROOT_DIR/Installer/scripts"
 )
 if [[ -n "${MONTAMAC_INSTALLER_IDENTITY:-}" ]]; then
   PKGBUILD_ARGS+=(--sign "$MONTAMAC_INSTALLER_IDENTITY")
 fi
-pkgbuild "${PKGBUILD_ARGS[@]}" "$DIST_DIR/MontaMac-2.1.0.pkg"
+pkgbuild "${PKGBUILD_ARGS[@]}" "$DIST_DIR/MontaMac-2.1.1.pkg"
 
-echo "Creato: $DIST_DIR/MontaMac-2.1.0.pkg"
+echo "Creato: $DIST_DIR/MontaMac-2.1.1.pkg"

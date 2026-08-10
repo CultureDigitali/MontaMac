@@ -22,7 +22,22 @@ public struct ActivitySummary: Sendable {
 public final class ActivityStore {
     public let fileURL: URL
     public init(fileURL: URL = ConnectionStore.defaultURL.deletingLastPathComponent().appendingPathComponent("activity.json")) { self.fileURL = fileURL }
-    public func record(_ event: ActivityEvent) throws { var events = try allEvents(); events.append(event); try save(events) }
+    public func record(_ event: ActivityEvent) throws {
+        var events = try allEvents()
+        if case let .transfer(connectionID, bytes, at) = event {
+            guard bytes > 0 else { return }
+            if let last = events.last,
+               case let .transfer(lastConnectionID, lastBytes, _) = last,
+               lastConnectionID == connectionID {
+                events[events.count - 1] = .transfer(connectionID: connectionID, bytes: lastBytes + bytes, at: at)
+            } else {
+                events.append(event)
+            }
+        } else {
+            events.append(event)
+        }
+        try save(events)
+    }
     public func recentEvents(limit: Int = 20) throws -> [ActivityEvent] { Array(try allEvents().sorted { $0.date > $1.date }.prefix(limit)) }
     public func summary(since: Date) throws -> ActivitySummary {
         let events = try allEvents().filter { $0.date >= since }; var result = ActivitySummary()
