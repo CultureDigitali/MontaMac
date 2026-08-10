@@ -10,10 +10,11 @@ final class DirectorySizeServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
         try Data(repeating: 0x41, count: 1_024).write(to: root.appendingPathComponent("a.bin"))
         try Data(repeating: 0x42, count: 2_048).write(to: nested.appendingPathComponent("b.bin"))
+        try Data(repeating: 0x43, count: 1_048_576).write(to: root.appendingPathComponent(".hidden-cache.bin"))
 
         let bytes = try DirectorySizeService().allocatedBytes(at: root)
 
-        XCTAssertGreaterThanOrEqual(bytes, 3_072)
+        XCTAssertGreaterThanOrEqual(bytes, 1_051_648)
     }
 
     func testAllocatedBytesReturnsZeroForMissingDirectory() throws {

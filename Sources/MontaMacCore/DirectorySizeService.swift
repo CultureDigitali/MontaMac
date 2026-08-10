@@ -15,7 +15,7 @@ public struct DirectorySizeService: Sendable {
         guard let enumerator = FileManager.default.enumerator(
             at: root,
             includingPropertiesForKeys: Array(keys),
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            options: [.skipsPackageDescendants]
         ) else { return 0 }
 
         var bytes: Int64 = 0
