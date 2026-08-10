@@ -1,7 +1,8 @@
 # MontaMac GitHub Showcase Design
 
-**Date:** 2026-08-10  
-**Status:** Approved direction  
+**Date:** 2026-08-10
+
+**Status:** Approved direction
 **Audience:** macOS users and open-source contributors
 
 ## Goal

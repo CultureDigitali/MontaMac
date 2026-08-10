@@ -88,7 +88,8 @@ final class RepositoryShowcaseTests: XCTestCase {
 
 - [ ] **Step 2: Run the new suite and verify failure**
 
-Run: `swift test --filter RepositoryShowcaseTests`  
+Run: `swift test --filter RepositoryShowcaseTests`
+
 Expected: FAIL because the new README surface, community files and images do not exist.
 
 - [ ] **Step 3: Commit the red test**
@@ -177,7 +178,8 @@ Use only repository-relative image and document links. Link downloads to `https:
 
 - [ ] **Step 2: Run the focused showcase tests**
 
-Run: `swift test --filter RepositoryShowcaseTests.testReadmeContainsProductAndDownloadSurface`  
+Run: `swift test --filter RepositoryShowcaseTests.testReadmeContainsProductAndDownloadSurface`
+
 Expected: PASS.
 
 - [ ] **Step 3: Check links and sensitive strings locally**
@@ -231,7 +233,8 @@ Require a summary, motivation, screenshots for UI changes, `swift test` confirma
 
 - [ ] **Step 5: Run community-file tests**
 
-Run: `swift test --filter RepositoryShowcaseTests.testCommunityFilesExist`  
+Run: `swift test --filter RepositoryShowcaseTests.testCommunityFilesExist`
+
 Expected: PASS.
 
 - [ ] **Step 6: Commit the community surface**
