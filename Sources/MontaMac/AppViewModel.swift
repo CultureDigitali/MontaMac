@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import MontaMacCore
 
@@ -20,6 +21,8 @@ final class AppViewModel: ObservableObject {
     private let credentials = CredentialStore()
     private lazy var profileSecurityCleaner = ProfileSecurityCleaner(credentials: credentials)
     private let activityStore = ActivityStore()
+    private var transferTrackers: [UUID: TransferProgressTracker] = [:]
+    private var cancellables: Set<AnyCancellable> = []
     private let mountCompletionHandler = MountCompletionHandler { url in
         NSWorkspace.shared.open(url)
     }
@@ -29,6 +32,7 @@ final class AppViewModel: ObservableObject {
         selection = connections.first?.id
         coordinator.reconcile(connections)
         reloadDashboard()
+        observeTransferTotals()
     }
 
     var selectedConnection: RemoteConnection? { connections.first { $0.id == selection } }
@@ -103,6 +107,25 @@ final class AppViewModel: ObservableObject {
     }
     func openInFinder() { guard let path = selectedConnection?.mountPath else { return }; NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
     func reloadDashboard() { activitySummary = (try? activityStore.summary(since: Calendar.current.date(byAdding: .day, value: -30, to: .now) ?? .distantPast)) ?? ActivitySummary(); recentActivity = (try? activityStore.recentEvents()) ?? [] }
+    private func observeTransferTotals() {
+        coordinator.$transferTotals
+            .sink { [weak self] totals in
+                Task { @MainActor [weak self] in self?.persistTransferTotals(totals) }
+            }
+            .store(in: &cancellables)
+    }
+    private func persistTransferTotals(_ totals: [UUID: Int64]) {
+        var recordedTransfer = false
+        for (connectionID, total) in totals {
+            var tracker = transferTrackers[connectionID, default: TransferProgressTracker()]
+            let delta = tracker.consume(totalBytes: total)
+            transferTrackers[connectionID] = tracker
+            guard delta > 0 else { continue }
+            try? activityStore.record(.transfer(connectionID: connectionID, bytes: delta, at: .now))
+            recordedTransfer = true
+        }
+        if recordedTransfer { reloadDashboard() }
+    }
     func recordMounted(_ connection: RemoteConnection) {
         if let index = connections.firstIndex(where: { $0.id == connection.id }) {
             connections[index].markUsed()
