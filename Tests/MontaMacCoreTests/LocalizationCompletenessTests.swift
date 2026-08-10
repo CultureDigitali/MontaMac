@@ -17,6 +17,7 @@ final class LocalizationCompletenessTests: XCTestCase {
             "Crediti", "Creato da Luigi Strazzullo per Culture Digitali Srl",
             "Fondatore e amministratore, imprenditore e consulente digitale",
             "Sito web", "Email", "Telefono", "Sede", "Partita IVA",
+            "Cache temporanea", "Aggiornamento automatico",
         ]
 
         for language in ["it", "en", "fr", "es"] {
