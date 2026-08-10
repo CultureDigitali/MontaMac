@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest a focused improvement for MontaMac
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: Describe the user problem first. Please use synthetic examples and never include credentials or private infrastructure details.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What is difficult today, and who experiences it?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Proposed outcome
+      description: Explain the behavior you would like without prescribing unnecessary implementation details.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any workaround or alternative workflow you tried.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Submission checklist
+      options:
+        - label: This request describes one focused user outcome.
+          required: true
+        - label: I removed credentials, private server information and personal paths.
+          required: true
