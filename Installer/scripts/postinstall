@@ -1,0 +1,7 @@
+#!/bin/zsh
+set -eu
+
+APP_PATH="${3}/Applications/MontaMac.app"
+if [[ -d "$APP_PATH" ]]; then
+  /usr/bin/open "$APP_PATH"
+fi

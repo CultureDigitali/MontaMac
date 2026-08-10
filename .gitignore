@@ -1,0 +1,23 @@
+.build/
+.DS_Store
+MontaMac.app/
+dist/
+OLD/
+.superpowers/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+*.xcuserstate
+
+# Local environment and credentials
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.cer
+*.mobileprovision
+
+# MontaMac user data and temporary rclone material
+connections.json
+activity.json
+*.conf
+*.log

@@ -1,0 +1,2 @@
+import SwiftUI
+struct LogSheet: View { let lines: [String]; var body: some View { VStack(alignment: .leading) { Text("Log attività").font(.title2.bold()); ScrollView { if lines.isEmpty { Text("Nessuna attività registrata.") } else { Text(lines.joined(separator: "\n")) } }.font(.system(.body, design: .monospaced)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading); Button("Chiudi") { NSApp.keyWindow?.close() }.frame(maxWidth: .infinity, alignment: .trailing) }.padding(24).frame(width: 680, height: 380) } }
