@@ -19,4 +19,4 @@ Culture Digitali Srl will acknowledge the report and coordinate remediation and 
 
 ## Distribution notice
 
-The current `2.1.1` package is not notarized with an Apple Developer ID. Verify the published SHA-256 checksum before installation. This limitation concerns distributor identity and Gatekeeper trust; it does not replace review of the source code or safe handling of remote-drive credentials.
+Official `2.2.0` release artifacts are produced by the Developer ID signing and notarization workflow. Local packages built without Culture Digitali's Apple credentials are ad-hoc signed and must not be presented as official notarized releases. Always verify the published SHA-256 checksum.

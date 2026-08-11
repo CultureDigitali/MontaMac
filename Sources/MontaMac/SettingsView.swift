@@ -59,7 +59,7 @@ struct SettingsView: View {
             Section("Informazioni") {
                 LabeledContent(
                     "Versione",
-                    value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.1.1"
+                    value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "2.2.0"
                 )
                 Button("Crediti") { isCreditsPresented = true }
             }

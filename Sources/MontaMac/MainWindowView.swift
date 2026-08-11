@@ -94,7 +94,7 @@ struct MainWindowView: View {
 
     private func presentRequirementsIfNeeded() {
         guard hasSeenOnboarding else { return }
-        isRequirementsPresented = !RequirementChecker().check().allSatisfy(\.isInstalled)
+        isRequirementsPresented = !RequirementChecker.mountBlockingRequirements(in: RequirementChecker().check()).isEmpty
     }
 
     private var menuActions: MenuActions {

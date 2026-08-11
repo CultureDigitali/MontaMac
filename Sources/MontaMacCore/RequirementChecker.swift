@@ -10,6 +10,9 @@ public struct RequirementChecker {
         self.executables = executables ?? Self.detectedExecutables(existingPaths: existingPaths)
     }
     public func check() -> [RequirementStatus] { [RequirementStatus(id: "brew", title: "Homebrew", isInstalled: executables.contains("brew")), RequirementStatus(id: "rclone", title: "rclone", isInstalled: executables.contains("rclone")), RequirementStatus(id: "fuse", title: "FUSE-T", isInstalled: executables.contains("fuse-t"))] }
+    public static func mountBlockingRequirements(in statuses: [RequirementStatus]) -> [RequirementStatus] {
+        statuses.filter { ($0.id == "rclone" || $0.id == "fuse") && !$0.isInstalled }
+    }
     public static func installationCommand(for statuses: [RequirementStatus]) -> String? {
         let missing = Set(statuses.filter { !$0.isInstalled }.map(\.id)); var commands: [String] = []
         let secureCurl = "/usr/bin/curl --fail --silent --show-error --location --proto '=https' --tlsv1.2"

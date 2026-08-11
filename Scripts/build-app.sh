@@ -3,6 +3,14 @@ set -euo pipefail
 
 ROOT_DIR="${0:A:h:h}"
 cd "$ROOT_DIR"
+if [[ "${MONTAMAC_RELEASE_BUILD:-0}" == "1" ]]; then
+    for REQUIRED_VARIABLE in MONTAMAC_SIGN_IDENTITY MONTAMAC_SPARKLE_FEED_URL MONTAMAC_SPARKLE_PUBLIC_KEY; do
+        if [[ -z "${(P)REQUIRED_VARIABLE:-}" ]]; then
+            echo "Errore release: manca $REQUIRED_VARIABLE." >&2
+            exit 1
+        fi
+    done
+fi
 swift build -c release
 BIN_DIR="$(swift build -c release --show-bin-path)"
 APP_DIR="$ROOT_DIR/MontaMac.app"

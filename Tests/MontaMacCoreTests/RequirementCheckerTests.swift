@@ -37,4 +37,11 @@ final class RequirementCheckerTests: XCTestCase {
 
         XCTAssertTrue(statuses.first { $0.id == "fuse" }?.isInstalled == true)
     }
+
+    func testHomebrewIsNotRequiredWhenRcloneAndFuseAreInstalled() {
+        let statuses = RequirementChecker(executables: ["rclone", "fuse-t"]).check()
+
+        XCTAssertTrue(RequirementChecker.mountBlockingRequirements(in: statuses).isEmpty)
+        XCTAssertFalse(statuses.first { $0.id == "brew" }?.isInstalled == true)
+    }
 }

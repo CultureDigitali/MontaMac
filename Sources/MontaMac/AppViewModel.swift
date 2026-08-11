@@ -92,7 +92,7 @@ final class AppViewModel: ObservableObject {
 
     func mountSelected() { guard let connection = selectedConnection else { return }; mount(connection) }
     func mount(_ connection: RemoteConnection) {
-        let missing = RequirementChecker().check().filter { !$0.isInstalled }.map(\.title)
+        let missing = RequirementChecker.mountBlockingRequirements(in: RequirementChecker().check()).map(\.title)
         guard missing.isEmpty else {
             coordinator.reportFailure("Installa prima: \(missing.joined(separator: ", ")).", for: connection)
             return
