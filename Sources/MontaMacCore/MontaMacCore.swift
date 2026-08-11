@@ -29,4 +29,9 @@ public enum MountStatus: Equatable, Sendable {
         case let .failed(message): return message
         }
     }
+
+    public var allowsCacheCleanup: Bool {
+        if case .disconnected = self { return true }
+        return false
+    }
 }

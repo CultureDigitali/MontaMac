@@ -25,5 +25,7 @@ if [[ -n "${MONTAMAC_INSTALLER_IDENTITY:-}" ]]; then
   PKGBUILD_ARGS+=(--sign "$MONTAMAC_INSTALLER_IDENTITY")
 fi
 pkgbuild "${PKGBUILD_ARGS[@]}" "$DIST_DIR/MontaMac-$APP_VERSION.pkg"
+(cd "$DIST_DIR" && shasum -a 256 "MontaMac-$APP_VERSION.pkg" > "MontaMac-$APP_VERSION.pkg.sha256")
 
 echo "Creato: $DIST_DIR/MontaMac-$APP_VERSION.pkg"
+echo "Checksum: $DIST_DIR/MontaMac-$APP_VERSION.pkg.sha256"

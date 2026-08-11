@@ -25,6 +25,7 @@ final class RcloneServiceTests: XCTestCase {
         XCTAssertTrue(arguments.contains("--stats-log-level"))
         XCTAssertTrue(arguments.contains("NOTICE"))
         XCTAssertEqual(arguments[arguments.firstIndex(of: "--vfs-cache-max-size")! + 1], "10G")
-        XCTAssertEqual(arguments[arguments.firstIndex(of: "--min-free-space")! + 1], "7G")
+        XCTAssertEqual(arguments[arguments.firstIndex(of: "--vfs-cache-min-free-space")! + 1], "7G")
+        XCTAssertEqual(arguments[arguments.firstIndex(of: "--vfs-cache-poll-interval")! + 1], "1m")
     }
 }

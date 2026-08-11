@@ -31,4 +31,12 @@ final class RcloneJSONLogParserTests: XCTestCase {
 
         XCTAssertEqual(events, [.log("ready"), .log("legacy warning")])
     }
+
+    func testStatisticsExposeOnlyFileBasename() {
+        var parser = RcloneJSONLogParser()
+        let events = parser.consume(#"{"stats":{"bytes":1,"transferring":[{"name":"private/customer/video.mov"}]}}"# + "\n")
+
+        guard case let .statistics(snapshot) = events.first else { return XCTFail("Missing statistics") }
+        XCTAssertEqual(snapshot.currentFile, "video.mov")
+    }
 }

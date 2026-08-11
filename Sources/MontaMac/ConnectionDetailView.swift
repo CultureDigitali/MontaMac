@@ -28,9 +28,15 @@ struct ConnectionDetailView: View {
                 }
                 DriveInsightsView(connection: connection, statistics: viewModel.statistics[connection.id], isRefreshing: viewModel.refreshingStatistics.contains(connection.id)) { viewModel.refreshStatistics(for: connection) }
                 HStack {
-                    if isMounted { Button("Smonta drive", systemImage: "eject", action: viewModel.unmountSelected).buttonStyle(.bordered) }
-                    else { Button("Monta drive", systemImage: "externaldrive.badge.plus", action: viewModel.mountSelected).buttonStyle(.borderedProminent).controlSize(.large) }
+                    if viewModel.commandAvailability.canUnmount {
+                        Button(isMounted ? "Smonta drive" : "Annulla riconnessione", systemImage: "eject", action: viewModel.unmountSelected).buttonStyle(.bordered)
+                    } else {
+                        Button("Monta drive", systemImage: "externaldrive.badge.plus", action: viewModel.mountSelected)
+                            .buttonStyle(.borderedProminent).controlSize(.large)
+                            .disabled(!viewModel.commandAvailability.canMount)
+                    }
                     Button("Apri nel Finder", systemImage: "folder", action: viewModel.openInFinder).buttonStyle(.borderless)
+                        .disabled(!viewModel.commandAvailability.canOpenFinder)
                 }
                 DiagnosticsView(connection: connection)
             }.padding(32).frame(maxWidth: 760, alignment: .leading)

@@ -7,10 +7,12 @@ import MontaMacCore
 final class UpdateController: ObservableObject {
     @Published private(set) var isConfigured: Bool
     private let controller: SPUStandardUpdaterController
+    private let failureHandler: (Error) -> Void
 
-    init(bundle: Bundle = .main) {
+    init(bundle: Bundle = .main, failureHandler: @escaping (Error) -> Void = { _ in }) {
         let configuration = UpdateConfiguration(infoDictionary: bundle.infoDictionary)
         isConfigured = configuration.isConfigured
+        self.failureHandler = failureHandler
         controller = SPUStandardUpdaterController(
             startingUpdater: false,
             updaterDelegate: nil,
@@ -18,7 +20,10 @@ final class UpdateController: ObservableObject {
         )
         if configuration.isConfigured {
             do { try controller.updater.start() }
-            catch { isConfigured = false }
+            catch {
+                isConfigured = false
+                failureHandler(error)
+            }
         }
     }
 

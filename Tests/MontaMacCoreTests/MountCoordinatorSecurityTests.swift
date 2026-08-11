@@ -16,6 +16,58 @@ final class MountCoordinatorSecurityTests: XCTestCase {
         XCTAssertEqual(coordinator.status(for: connection), .mounted)
     }
 
+    func testRepeatedMountRequestDoesNotStartASecondManagedProcess() async {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let mountPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("MontaMacTests/\(UUID().uuidString)")
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: mountPath)
+        }
+        let rclone = FakeRcloneService()
+        let coordinator = MountCoordinator(
+            credentials: FakeCredentials(),
+            rclone: rclone,
+            monitor: FakeMountMonitor(isMounted: false, waitResult: true),
+            configurationDirectory: root.appendingPathComponent("configs"),
+            cacheRoot: root.appendingPathComponent("cache"),
+            healthCheckInterval: nil
+        )
+        let connection = makeConnection(mountPath: mountPath.path)
+
+        await coordinator.mount(connection)
+        await coordinator.mount(connection)
+
+        XCTAssertEqual(rclone.startCount, 1)
+    }
+
+    func testCacheCleanupBlocksMountUntilCleanupFinishes() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let mountPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("MontaMacTests/\(UUID().uuidString)")
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: mountPath)
+        }
+        let rclone = FakeRcloneService()
+        let coordinator = MountCoordinator(
+            credentials: FakeCredentials(), rclone: rclone,
+            monitor: FakeMountMonitor(isMounted: false, waitResult: true),
+            configurationDirectory: root.appendingPathComponent("configs"),
+            cacheRoot: root.appendingPathComponent("cache"),
+            healthCheckInterval: nil,
+            cacheCleaner: { _, _ in try? await Task.sleep(for: .milliseconds(50)) }
+        )
+        let connection = makeConnection(mountPath: mountPath.path)
+
+        let cleanup = Task { try await coordinator.clearCache(for: connection) }
+        for _ in 0..<20 where !coordinator.isCleaningCache(for: connection) { await Task.yield() }
+        await coordinator.mount(connection)
+
+        XCTAssertEqual(rclone.startCount, 0)
+        try await cleanup.value
+        await coordinator.mount(connection)
+        XCTAssertEqual(rclone.startCount, 1)
+    }
+
     func testStartFailureRemovesTemporaryConfiguration() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let mountPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("MontaMacTests/\(UUID().uuidString)")
@@ -41,6 +93,7 @@ final class MountCoordinatorSecurityTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: cache.path), "La cache resta disponibile per evitare perdita di scritture pendenti")
         XCTAssertEqual(try permissions(root.appendingPathComponent("cache")), 0o700)
         XCTAssertEqual(try permissions(cache), 0o700)
+        XCTAssertEqual(coordinator.status(for: connection), .failed("mount.failure.start"))
     }
 
     func testRcloneStatisticsUpdateTransferTotalsAcrossOutputChunks() async throws {
@@ -95,6 +148,34 @@ final class MountCoordinatorSecurityTests: XCTestCase {
         for _ in 0..<8 { await Task.yield() }
 
         XCTAssertEqual(rclone.startCount, 2)
+        XCTAssertEqual(coordinator.status(for: connection), .mounted)
+        XCTAssertEqual(coordinator.retryAttempt(for: connection), 1)
+    }
+
+    func testRecoveryBudgetResetsAfterStableWindow() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let mountPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("MontaMacTests/\(UUID().uuidString)")
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: mountPath)
+        }
+        let rclone = FakeRcloneService()
+        let coordinator = MountCoordinator(
+            credentials: FakeCredentials(), rclone: rclone,
+            monitor: FakeMountMonitor(isMounted: false, waitResult: true),
+            configurationDirectory: root.appendingPathComponent("configs"),
+            cacheRoot: root.appendingPathComponent("cache"),
+            recoveryPolicy: MountRecoveryPolicy(delays: [0]),
+            sleeper: { _ in }, healthCheckInterval: nil,
+            stabilityResetInterval: 0,
+            stabilitySleeper: { _ in }
+        )
+        let connection = makeConnection(mountPath: mountPath.path)
+
+        await coordinator.mount(connection)
+        rclone.processes[0].exit(9)
+        for _ in 0..<12 { await Task.yield() }
+
         XCTAssertEqual(coordinator.status(for: connection), .mounted)
         XCTAssertEqual(coordinator.retryAttempt(for: connection), 0)
     }
@@ -158,6 +239,24 @@ final class MountCoordinatorSecurityTests: XCTestCase {
         XCTAssertEqual(coordinator.status(for: connection), .disconnected)
     }
 
+    func testFailedUnmountRemainsMountedSoUserCanRetry() async {
+        let rclone = FakeRcloneService()
+        rclone.shouldFailUnmount = true
+        let coordinator = MountCoordinator(
+            credentials: FakeCredentials(),
+            rclone: rclone,
+            monitor: FakeMountMonitor(isMounted: true),
+            healthCheckInterval: 60
+        )
+        let connection = makeConnection()
+        coordinator.reconcile([connection])
+
+        await coordinator.unmount(connection)
+
+        XCTAssertEqual(coordinator.status(for: connection), .mounted)
+        XCTAssertTrue(coordinator.isHealthMonitoring(connection))
+    }
+
     func testExhaustedRecoveryPolicyLeavesProfileFailed() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let mountPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("MontaMacTests/\(UUID().uuidString)")
@@ -184,6 +283,40 @@ final class MountCoordinatorSecurityTests: XCTestCase {
             return XCTFail("Expected a terminal failure")
         }
         XCTAssertEqual(rclone.startCount, 1)
+    }
+
+    func testRepeatedShortLivedRecoveriesRemainBounded() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let mountPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("MontaMacTests/\(UUID().uuidString)")
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: mountPath)
+        }
+        let rclone = FakeRcloneService()
+        var reportedIssues: [AppIssue] = []
+        let coordinator = MountCoordinator(
+            credentials: FakeCredentials(), rclone: rclone,
+            monitor: FakeMountMonitor(isMounted: false, waitResult: true),
+            configurationDirectory: root.appendingPathComponent("configs"),
+            cacheRoot: root.appendingPathComponent("cache"),
+            recoveryPolicy: MountRecoveryPolicy(delays: [0, 0, 0]),
+            sleeper: { _ in }, healthCheckInterval: nil,
+            issueHandler: { reportedIssues.append($0) }
+        )
+        let connection = makeConnection(mountPath: mountPath.path)
+
+        await coordinator.mount(connection)
+        for index in 0..<4 {
+            rclone.processes[index].exit(9)
+            for _ in 0..<8 { await Task.yield() }
+        }
+
+        XCTAssertEqual(rclone.startCount, 4)
+        guard case .failed = coordinator.status(for: connection) else {
+            return XCTFail("Expected bounded recovery failure")
+        }
+        XCTAssertTrue(reportedIssues.contains { $0.code == .mountInterrupted })
+        XCTAssertTrue(reportedIssues.contains { $0.code == .mountRecoveryExhausted })
     }
 
     func testHealthCheckRecoversWhenMountDisappears() async throws {
@@ -232,6 +365,7 @@ private final class FakeRcloneService: RcloneServicing {
     var isAvailable = true
     var startCount = 0
     var shouldFailStart = false
+    var shouldFailUnmount = false
     var processes: [FakeMountProcess] = []
     private var outputHandler: (@Sendable (String) -> Void)?
 
@@ -246,7 +380,9 @@ private final class FakeRcloneService: RcloneServicing {
     }
     func emit(_ output: String) { outputHandler?(output) }
     func obscure(_ password: String) throws -> String { "obscured" }
-    func unmount(at url: URL) throws {}
+    func unmount(at url: URL) throws {
+        if shouldFailUnmount { throw TestError.unmountFailed }
+    }
 }
 
 private final class FakeMountProcess: MountProcessHandling {
@@ -269,4 +405,4 @@ private final class FakeMountMonitor: MountMonitoring {
     func waitUntilMounted(at url: URL, timeout: TimeInterval) async -> Bool { waitResult }
 }
 
-private enum TestError: Error { case startFailed }
+private enum TestError: Error { case startFailed, unmountFailed }

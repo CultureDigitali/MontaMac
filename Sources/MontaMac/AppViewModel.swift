@@ -33,7 +33,10 @@ final class AppViewModel: ObservableObject {
     }
 
     init(issueCenter: IssueCenter = IssueCenter()) {
-        coordinator = MountCoordinator(automaticReconnectEnabled: { AppSettings.automaticReconnectValue() })
+        coordinator = MountCoordinator(
+            automaticReconnectEnabled: { AppSettings.automaticReconnectValue() },
+            issueHandler: issueCenter.report
+        )
         self.issueCenter = issueCenter
         do { connections = try store.load() }
         catch {
@@ -86,7 +89,7 @@ final class AppViewModel: ObservableObject {
             selection = connections.first?.id
             try store.save(connections)
         } catch {
-            coordinator.reportFailure("Profilo non eliminato: \(error.localizedDescription)", for: connection)
+            issueCenter.report(AppIssue(code: .profileSaveFailed, profileID: connection.id, arguments: [error.localizedDescription], severity: .error))
         }
     }
 
@@ -94,7 +97,8 @@ final class AppViewModel: ObservableObject {
     func mount(_ connection: RemoteConnection) {
         let missing = RequirementChecker.mountBlockingRequirements(in: RequirementChecker().check()).map(\.title)
         guard missing.isEmpty else {
-            coordinator.reportFailure("Installa prima: \(missing.joined(separator: ", ")).", for: connection)
+            coordinator.reportFailure("mount.failure.requirements", for: connection)
+            issueCenter.report(AppIssue(code: .mountInterrupted, profileID: connection.id, severity: .warning, recovery: .openRequirements))
             return
         }
         Task {
@@ -168,7 +172,6 @@ final class AppViewModel: ObservableObject {
         }
         if recordedTransfer {
             reloadDashboard()
-            refreshCacheUsage()
         }
     }
     func refreshDashboardMetrics() {
@@ -180,10 +183,15 @@ final class AppViewModel: ObservableObject {
         let cacheRoot = coordinator.cacheRootURL
         let profileIDs = connections.map(\.id)
         isMeasuringCache = true
+        let measurement = Task.detached(priority: .utility) {
+            Result { try CacheUsageService().snapshot(cacheRoot: cacheRoot, profileIDs: profileIDs) }
+        }
         cacheRefreshTask = Task { [weak self] in
-            let result = await Task.detached(priority: .utility) {
-                Result { try CacheUsageService().snapshot(cacheRoot: cacheRoot, profileIDs: profileIDs) }
-            }.value
+            let result = await withTaskCancellationHandler {
+                await measurement.value
+            } onCancel: {
+                measurement.cancel()
+            }
             guard !Task.isCancelled else { return }
             self?.isMeasuringCache = false
             switch result {
@@ -197,21 +205,13 @@ final class AppViewModel: ObservableObject {
     }
 
     func clearCache(for connection: RemoteConnection) {
-        let status = coordinator.status(for: connection)
-        let isActive: Bool
-        switch status {
-        case .disconnected, .failed: isActive = false
-        default: isActive = true
-        }
-        let cacheRoot = coordinator.cacheRootURL
         Task { [weak self] in
-            let result = await Task.detached(priority: .utility) {
-                Result { try CacheUsageService().clear(profileID: connection.id, cacheRoot: cacheRoot, isMounted: isActive) }
-            }.value
-            switch result {
-            case .success: self?.refreshCacheUsage()
-            case let .failure(error):
-                self?.issueCenter.report(AppIssue(code: .cacheCleanupFailed, profileID: connection.id, arguments: [error.localizedDescription], severity: .warning))
+            guard let self else { return }
+            do {
+                try await coordinator.clearCache(for: connection)
+                refreshCacheUsage()
+            } catch {
+                issueCenter.report(AppIssue(code: .cacheCleanupFailed, profileID: connection.id, arguments: [error.localizedDescription], severity: .warning))
             }
         }
     }

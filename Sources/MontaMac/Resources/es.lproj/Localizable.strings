@@ -138,8 +138,8 @@
 "issue.profile.save_failed" = "No se pudo guardar el perfil: %@";
 "issue.credential.save_failed" = "No se pudieron guardar las credenciales: %@";
 "issue.activity.write_failed" = "No se pudo actualizar el historial: %@";
-"issue.mount.interrupted" = "La conexión se interrumpió: %@";
-"issue.mount.recovery_exhausted" = "La reconexión falló: %@";
+"issue.mount.interrupted" = "La conexión se interrumpió.";
+"issue.mount.recovery_exhausted" = "La reconexión automática falló.";
 "issue.cache.cleanup_failed" = "No se pudo limpiar la caché: %@";
 "issue.diagnostics.export_failed" = "No se pudo exportar el diagnóstico: %@";
 "issue.update.check_failed" = "No se pudieron buscar actualizaciones: %@";
@@ -180,3 +180,12 @@
 "Controlla automaticamente" = "Comprobar automáticamente";
 "Controlla aggiornamenti…" = "Buscar actualizaciones…";
 "Gli aggiornamenti automatici saranno disponibili nella release firmata." = "Las actualizaciones automáticas estarán disponibles en la versión firmada.";
+"Annulla riconnessione" = "Cancelar reconexión";
+"mount.failure.missing_password" = "Añade la contraseña al Llavero antes de montar.";
+"mount.failure.timeout" = "La unidad no respondió a tiempo. Comprueba la conexión.";
+"mount.failure.start" = "No se pudo iniciar el montaje. Revisa Problemas y el diagnóstico.";
+"mount.failure.still_mounted" = "La unidad todavía parece estar montada.";
+"mount.failure.unmount" = "No se pudo desmontar la unidad. Cierra los archivos abiertos e inténtalo de nuevo.";
+"mount.failure.recovery_exhausted" = "La reconexión automática falló.";
+"mount.failure.requirements" = "Instala rclone y FUSE-T antes de montar la unidad.";
+"mount.failure.interrupted" = "La conexión se interrumpió.";

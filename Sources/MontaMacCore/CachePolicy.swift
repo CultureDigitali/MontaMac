@@ -44,7 +44,10 @@ public struct CachePolicy: Equatable, Sendable {
         if let gigabytes = limit.gigabytes {
             arguments += ["--vfs-cache-max-size", "\(gigabytes)G"]
         }
-        arguments += ["--min-free-space", "\(reservedFreeSpaceGB)G"]
+        arguments += [
+            "--vfs-cache-min-free-space", "\(reservedFreeSpaceGB)G",
+            "--vfs-cache-poll-interval", "1m",
+        ]
         return arguments
     }
 }

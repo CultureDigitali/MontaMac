@@ -138,8 +138,8 @@
 "issue.profile.save_failed" = "Impossibile salvare il profilo: %@";
 "issue.credential.save_failed" = "Impossibile salvare le credenziali: %@";
 "issue.activity.write_failed" = "Impossibile aggiornare lo storico: %@";
-"issue.mount.interrupted" = "La connessione è stata interrotta: %@";
-"issue.mount.recovery_exhausted" = "Riconnessione non riuscita: %@";
+"issue.mount.interrupted" = "La connessione è stata interrotta.";
+"issue.mount.recovery_exhausted" = "La riconnessione automatica non è riuscita.";
 "issue.cache.cleanup_failed" = "Impossibile pulire la cache: %@";
 "issue.diagnostics.export_failed" = "Impossibile esportare la diagnostica: %@";
 "issue.update.check_failed" = "Impossibile controllare gli aggiornamenti: %@";
@@ -180,3 +180,12 @@
 "Controlla automaticamente" = "Controlla automaticamente";
 "Controlla aggiornamenti…" = "Controlla aggiornamenti…";
 "Gli aggiornamenti automatici saranno disponibili nella release firmata." = "Gli aggiornamenti automatici saranno disponibili nella release firmata.";
+"Annulla riconnessione" = "Annulla riconnessione";
+"mount.failure.missing_password" = "Aggiungi la password nel Portachiavi prima di montare.";
+"mount.failure.timeout" = "Il drive non ha risposto in tempo. Controlla la connessione.";
+"mount.failure.start" = "Impossibile avviare il mount. Controlla Problemi e diagnostica.";
+"mount.failure.still_mounted" = "Il drive risulta ancora montato.";
+"mount.failure.unmount" = "Impossibile smontare il drive. Chiudi i file aperti e riprova.";
+"mount.failure.recovery_exhausted" = "La riconnessione automatica non è riuscita.";
+"mount.failure.requirements" = "Installa rclone e FUSE-T prima di montare il drive.";
+"mount.failure.interrupted" = "La connessione è stata interrotta.";

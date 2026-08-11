@@ -17,7 +17,7 @@ jobs:
       KEYCHAIN_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
       SPARKLE_FEED_URL: https://github.com/CultureDigitali/MontaMac/releases/latest/download/appcast.xml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Verify tag and test
         run: |
@@ -84,8 +84,8 @@ jobs:
           chmod 600 "$RUNNER_TEMP/sparkle-private-key"
           .build/artifacts/sparkle/Sparkle/bin/sign_update --ed-key-file "$RUNNER_TEMP/sparkle-private-key" "dist/MontaMac-$VERSION.zip"
           .build/artifacts/sparkle/Sparkle/bin/generate_appcast --ed-key-file "$RUNNER_TEMP/sparkle-private-key" --download-url-prefix "https://github.com/CultureDigitali/MontaMac/releases/download/$GITHUB_REF_NAME/" dist
-          shasum -a 256 "dist/MontaMac-$VERSION.pkg" > "dist/MontaMac-$VERSION.pkg.sha256"
-          shasum -a 256 "dist/MontaMac-$VERSION.zip" > "dist/MontaMac-$VERSION.zip.sha256"
+          (cd dist && shasum -a 256 "MontaMac-$VERSION.pkg" > "MontaMac-$VERSION.pkg.sha256")
+          (cd dist && shasum -a 256 "MontaMac-$VERSION.zip" > "MontaMac-$VERSION.zip.sha256")
 
       - name: Publish GitHub release
         env:

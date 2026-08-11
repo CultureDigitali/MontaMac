@@ -5,6 +5,7 @@ struct CacheManagementView: View {
     let snapshot: CacheUsageSnapshot
     let connections: [RemoteConnection]
     let statuses: [UUID: MountStatus]
+    let cleaningProfileIDs: Set<UUID>
     let isMeasuring: Bool
     let onRefresh: () -> Void
     let onClear: (RemoteConnection) -> Void
@@ -43,7 +44,7 @@ struct CacheManagementView: View {
                                     }
                                     Spacer()
                                     Button("Pulisci") { pendingClear = connection }
-                                        .disabled(isActive(statuses[connection.id] ?? .disconnected))
+                                        .disabled(isActive(statuses[connection.id] ?? .disconnected) || cleaningProfileIDs.contains(connection.id))
                                 }
                                 .padding(.vertical, 10)
                                 if connection.id != connections.last?.id { Divider() }
@@ -75,10 +76,7 @@ struct CacheManagementView: View {
     }
 
     private func isActive(_ status: MountStatus) -> Bool {
-        switch status {
-        case .disconnected, .failed: return false
-        default: return true
-        }
+        !status.allowsCacheCleanup
     }
 }
 

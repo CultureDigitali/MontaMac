@@ -138,8 +138,8 @@
 "issue.profile.save_failed" = "Impossible d’enregistrer le profil : %@";
 "issue.credential.save_failed" = "Impossible d’enregistrer les identifiants : %@";
 "issue.activity.write_failed" = "Impossible de mettre à jour l’historique : %@";
-"issue.mount.interrupted" = "La connexion a été interrompue : %@";
-"issue.mount.recovery_exhausted" = "Échec de la reconnexion : %@";
+"issue.mount.interrupted" = "La connexion a été interrompue.";
+"issue.mount.recovery_exhausted" = "La reconnexion automatique a échoué.";
 "issue.cache.cleanup_failed" = "Impossible de vider le cache : %@";
 "issue.diagnostics.export_failed" = "Impossible d’exporter le diagnostic : %@";
 "issue.update.check_failed" = "Impossible de rechercher les mises à jour : %@";
@@ -180,3 +180,12 @@
 "Controlla automaticamente" = "Vérifier automatiquement";
 "Controlla aggiornamenti…" = "Rechercher les mises à jour…";
 "Gli aggiornamenti automatici saranno disponibili nella release firmata." = "Les mises à jour automatiques seront disponibles dans la version signée.";
+"Annulla riconnessione" = "Annuler la reconnexion";
+"mount.failure.missing_password" = "Ajoutez le mot de passe au Trousseau avant le montage.";
+"mount.failure.timeout" = "Le lecteur n’a pas répondu à temps. Vérifiez la connexion.";
+"mount.failure.start" = "Impossible de démarrer le montage. Consultez Problèmes et le diagnostic.";
+"mount.failure.still_mounted" = "Le lecteur semble toujours monté.";
+"mount.failure.unmount" = "Impossible de démonter le lecteur. Fermez les fichiers ouverts et réessayez.";
+"mount.failure.recovery_exhausted" = "La reconnexion automatique a échoué.";
+"mount.failure.requirements" = "Installez rclone et FUSE-T avant de monter le lecteur.";
+"mount.failure.interrupted" = "La connexion a été interrompue.";

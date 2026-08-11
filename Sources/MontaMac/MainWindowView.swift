@@ -3,12 +3,16 @@ import MontaMacCore
 
 struct MainWindowView: View {
     @EnvironmentObject private var settings: AppSettings
-    @StateObject private var viewModel = AppViewModel()
+    @StateObject private var viewModel: AppViewModel
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     @State private var isHelpPresented = false
     @State private var isRequirementsPresented = false
     @State private var isDeleteConfirmationPresented = false
     private var onboardingBinding: Binding<Bool> { Binding(get: { !hasSeenOnboarding }, set: { if !$0 { hasSeenOnboarding = true } }) }
+
+    init(issueCenter: IssueCenter) {
+        _viewModel = StateObject(wrappedValue: AppViewModel(issueCenter: issueCenter))
+    }
 
     var body: some View {
         NavigationSplitView {
@@ -43,6 +47,7 @@ struct MainWindowView: View {
                     snapshot: viewModel.cacheSnapshot,
                     connections: viewModel.connections,
                     statuses: viewModel.coordinator.statuses,
+                    cleaningProfileIDs: viewModel.coordinator.cleaningCacheProfileIDs,
                     isMeasuring: viewModel.isMeasuringCache,
                     onRefresh: viewModel.refreshCacheUsage,
                     onClear: viewModel.clearCache
@@ -126,6 +131,10 @@ struct MainWindowView: View {
     }
 
     private func recover(_ issue: AppIssue) {
+        if issue.recovery == .openRequirements {
+            isRequirementsPresented = true
+            return
+        }
         guard let profileID = issue.profileID,
               let connection = viewModel.connections.first(where: { $0.id == profileID }) else { return }
         viewModel.mount(connection)

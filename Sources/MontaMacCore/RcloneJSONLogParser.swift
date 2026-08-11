@@ -40,7 +40,7 @@ public struct RcloneJSONLogParser: Sendable {
             speedBytesPerSecond: number(stats["speed"]) ?? number(current?["speed"]) ?? 0,
             etaSeconds: etaValue.flatMap { $0 >= 0 ? Int($0) : nil },
             activeTransfers: transferring.count,
-            currentFile: current?["name"] as? String
+            currentFile: (current?["name"] as? String).map { URL(fileURLWithPath: $0).lastPathComponent }
         ))
     }
 

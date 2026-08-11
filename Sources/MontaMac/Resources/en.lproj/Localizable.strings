@@ -138,8 +138,8 @@
 "issue.profile.save_failed" = "Unable to save the profile: %@";
 "issue.credential.save_failed" = "Unable to save credentials: %@";
 "issue.activity.write_failed" = "Unable to update activity history: %@";
-"issue.mount.interrupted" = "The connection was interrupted: %@";
-"issue.mount.recovery_exhausted" = "Reconnection failed: %@";
+"issue.mount.interrupted" = "The connection was interrupted.";
+"issue.mount.recovery_exhausted" = "Automatic reconnection failed.";
 "issue.cache.cleanup_failed" = "Unable to clear the cache: %@";
 "issue.diagnostics.export_failed" = "Unable to export diagnostics: %@";
 "issue.update.check_failed" = "Unable to check for updates: %@";
@@ -180,3 +180,12 @@
 "Controlla automaticamente" = "Check automatically";
 "Controlla aggiornamenti…" = "Check for updates…";
 "Gli aggiornamenti automatici saranno disponibili nella release firmata." = "Automatic updates will be available in the signed release.";
+"Annulla riconnessione" = "Cancel reconnection";
+"mount.failure.missing_password" = "Add the password to Keychain before mounting.";
+"mount.failure.timeout" = "The drive did not respond in time. Check the connection.";
+"mount.failure.start" = "The mount could not start. Check Issues and diagnostics.";
+"mount.failure.still_mounted" = "The drive still appears to be mounted.";
+"mount.failure.unmount" = "The drive could not be unmounted. Close open files and try again.";
+"mount.failure.recovery_exhausted" = "Automatic reconnection failed.";
+"mount.failure.requirements" = "Install rclone and FUSE-T before mounting the drive.";
+"mount.failure.interrupted" = "The connection was interrupted.";

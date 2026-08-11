@@ -12,4 +12,11 @@ final class MountStatusTests: XCTestCase {
         XCTAssertEqual(status, .reconnecting(attempt: 2, delay: 5))
         XCTAssertEqual(status.localizationKey, "mount.status.reconnecting")
     }
+
+    func testCacheCleanupIsAllowedOnlyWhenDisconnected() {
+        XCTAssertTrue(MountStatus.disconnected.allowsCacheCleanup)
+        XCTAssertFalse(MountStatus.failed("still mounted").allowsCacheCleanup)
+        XCTAssertFalse(MountStatus.mounted.allowsCacheCleanup)
+        XCTAssertFalse(MountStatus.connecting.allowsCacheCleanup)
+    }
 }

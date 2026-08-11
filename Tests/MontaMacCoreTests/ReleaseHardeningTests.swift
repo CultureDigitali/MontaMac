@@ -24,6 +24,7 @@ final class ReleaseHardeningTests: XCTestCase {
         XCTAssertTrue(appScript.contains("MONTAMAC_RELEASE_BUILD"))
         XCTAssertTrue(appScript.contains("MONTAMAC_SPARKLE_PUBLIC_KEY"))
         XCTAssertTrue(pkgScript.contains("MONTAMAC_RELEASE_BUILD"))
+        XCTAssertTrue(pkgScript.contains(".pkg.sha256"))
     }
 
     func testReleaseWorkflowRequiresSigningNotarizationAndAppcast() throws {
@@ -34,5 +35,7 @@ final class ReleaseHardeningTests: XCTestCase {
         XCTAssertTrue(workflow.contains("generate_appcast"))
         XCTAssertTrue(workflow.contains("SPARKLE_PRIVATE_KEY"))
         XCTAssertTrue(workflow.contains("gh release create"))
+        XCTAssertTrue(workflow.contains("actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5"))
+        XCTAssertFalse(workflow.contains("actions/checkout@v4"))
     }
 }

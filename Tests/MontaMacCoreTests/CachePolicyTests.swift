@@ -9,14 +9,18 @@ final class CachePolicyTests: XCTestCase {
         XCTAssertEqual(policy.reservedFreeSpaceGB, 5)
         XCTAssertEqual(policy.rcloneArguments, [
             "--vfs-cache-max-size", "5G",
-            "--min-free-space", "5G",
+            "--vfs-cache-min-free-space", "5G",
+            "--vfs-cache-poll-interval", "1m",
         ])
     }
 
     func testUnlimitedPolicyOmitsMaximumSize() {
         let policy = CachePolicy(limit: .unlimited, reservedFreeSpaceGB: 8)
 
-        XCTAssertEqual(policy.rcloneArguments, ["--min-free-space", "8G"])
+        XCTAssertEqual(policy.rcloneArguments, [
+            "--vfs-cache-min-free-space", "8G",
+            "--vfs-cache-poll-interval", "1m",
+        ])
     }
 
     func testProfileOverrideWinsOverGlobalLimit() {

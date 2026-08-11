@@ -4,11 +4,13 @@ import Foundation
 @MainActor
 public final class MountCoordinator: ObservableObject {
     public typealias Sleeper = @Sendable (TimeInterval) async -> Void
+    public typealias CacheCleaner = @Sendable (UUID, URL) async throws -> Void
 
     @Published public private(set) var statuses: [UUID: MountStatus] = [:]
     @Published public private(set) var logs: [UUID: [String]] = [:]
     @Published public private(set) var transferTotals: [UUID: Int64] = [:]
     @Published public private(set) var transferSnapshots: [UUID: TransferSnapshot] = [:]
+    @Published public private(set) var cleaningCacheProfileIDs: Set<UUID> = []
 
     private var processes: [UUID: any MountProcessHandling] = [:]
     private var processTokens: [UUID: UUID] = [:]
@@ -19,6 +21,7 @@ public final class MountCoordinator: ObservableObject {
     private var retryCounts: [UUID: Int] = [:]
     private var retryTasks: [UUID: Task<Void, Never>] = [:]
     private var healthTasks: [UUID: Task<Void, Never>] = [:]
+    private var stabilityTasks: [UUID: Task<Void, Never>] = [:]
     private var connectionsByID: [UUID: RemoteConnection] = [:]
 
     private let credentials: CredentialStoring
@@ -29,8 +32,12 @@ public final class MountCoordinator: ObservableObject {
     private let recoveryPolicy: MountRecoveryPolicy
     private let sleeper: Sleeper
     private let healthCheckInterval: TimeInterval?
+    private let stabilityResetInterval: TimeInterval
+    private let stabilitySleeper: Sleeper
+    private let cacheCleaner: CacheCleaner
     private let cachePolicyResolver: CachePolicyResolver
     private let automaticReconnectEnabled: () -> Bool
+    private let issueHandler: (AppIssue) -> Void
 
     public init(
         credentials: CredentialStoring = CredentialStore(),
@@ -41,8 +48,16 @@ public final class MountCoordinator: ObservableObject {
         recoveryPolicy: MountRecoveryPolicy = MountRecoveryPolicy(),
         sleeper: @escaping Sleeper = { seconds in try? await Task.sleep(for: .seconds(seconds)) },
         healthCheckInterval: TimeInterval? = 5,
+        stabilityResetInterval: TimeInterval = 60,
+        stabilitySleeper: @escaping Sleeper = { seconds in try? await Task.sleep(for: .seconds(seconds)) },
+        cacheCleaner: @escaping CacheCleaner = { profileID, root in
+            try await Task.detached(priority: .utility) {
+                try CacheUsageService().clear(profileID: profileID, cacheRoot: root, isMounted: false)
+            }.value
+        },
         cachePolicyResolver: CachePolicyResolver = CachePolicyResolver(),
-        automaticReconnectEnabled: @escaping () -> Bool = { true }
+        automaticReconnectEnabled: @escaping () -> Bool = { true },
+        issueHandler: @escaping (AppIssue) -> Void = { _ in }
     ) {
         self.credentials = credentials
         self.rclone = rclone
@@ -52,24 +67,37 @@ public final class MountCoordinator: ObservableObject {
         self.recoveryPolicy = recoveryPolicy
         self.sleeper = sleeper
         self.healthCheckInterval = healthCheckInterval
+        self.stabilityResetInterval = stabilityResetInterval
+        self.stabilitySleeper = stabilitySleeper
+        self.cacheCleaner = cacheCleaner
         self.cachePolicyResolver = cachePolicyResolver
         self.automaticReconnectEnabled = automaticReconnectEnabled
+        self.issueHandler = issueHandler
     }
 
     deinit {
         retryTasks.values.forEach { $0.cancel() }
         healthTasks.values.forEach { $0.cancel() }
+        stabilityTasks.values.forEach { $0.cancel() }
     }
 
     public func status(for connection: RemoteConnection) -> MountStatus { statuses[connection.id] ?? .disconnected }
     public func retryAttempt(for connection: RemoteConnection) -> Int { retryCounts[connection.id, default: 0] }
+    public func isCleaningCache(for connection: RemoteConnection) -> Bool { cleaningCacheProfileIDs.contains(connection.id) }
     public var cacheRootURL: URL { cacheRoot }
 
     public func mount(_ connection: RemoteConnection) async {
+        guard !cleaningCacheProfileIDs.contains(connection.id) else { return }
+        if processes[connection.id]?.isRunning == true { return }
+        switch statuses[connection.id] {
+        case .connecting?, .mounted?, .reconnecting?, .disconnecting?: return
+        default: break
+        }
         connectionsByID[connection.id] = connection
         intendedMounted.insert(connection.id)
         retryCounts[connection.id] = 0
         retryTasks.removeValue(forKey: connection.id)?.cancel()
+        stabilityTasks.removeValue(forKey: connection.id)?.cancel()
         await mountAttempt(connection, isRecovery: false)
     }
 
@@ -82,13 +110,14 @@ public final class MountCoordinator: ObservableObject {
         let mountURL = URL(fileURLWithPath: connection.mountPath)
         if monitor.isMounted(at: mountURL) {
             statuses[connection.id] = .mounted
-            retryCounts[connection.id] = 0
+            if !isRecovery { retryCounts[connection.id] = 0 }
             append("Drive già montato: nessun secondo processo avviato.", for: connection)
             startHealthMonitor(for: connection)
             return
         }
         guard let password = try? credentials.password(for: connection.id), !password.isEmpty else {
-            stopRecoveryAndFail(connection, "Aggiungi la password nel Portachiavi prima di montare.")
+            reportMountFailure(for: connection)
+            stopRecoveryAndFail(connection, "mount.failure.missing_password")
             return
         }
         statuses[connection.id] = isRecovery ? statuses[connection.id] : .connecting
@@ -119,20 +148,28 @@ public final class MountCoordinator: ObservableObject {
             if await monitor.waitUntilMounted(at: mountURL, timeout: 12) {
                 guard processTokens[connection.id] == token, intendedMounted.contains(connection.id) else { return }
                 statuses[connection.id] = .mounted
-                retryCounts[connection.id] = 0
+                if !isRecovery { retryCounts[connection.id] = 0 }
                 append("Drive montato correttamente.", for: connection)
                 startHealthMonitor(for: connection)
+                if isRecovery { scheduleRecoveryBudgetReset(for: connection, token: token) }
             } else {
                 discardProcess(for: connection, terminate: true)
                 removeConfiguration(for: connection)
                 if isRecovery { scheduleRecovery(for: connection, reason: "Il drive non risponde.") }
-                else { stopRecoveryAndFail(connection, "Il drive non è stato montato. Controlla il log e la connessione.") }
+                else {
+                    reportMountFailure(for: connection)
+                    stopRecoveryAndFail(connection, "mount.failure.timeout")
+                }
             }
         } catch {
             discardProcess(for: connection, terminate: true)
             removeConfiguration(for: connection)
             if isRecovery { scheduleRecovery(for: connection, reason: error.localizedDescription) }
-            else { stopRecoveryAndFail(connection, error.localizedDescription) }
+            else {
+                append(SensitiveLogRedactor.redact(error.localizedDescription, for: connection), for: connection)
+                reportMountFailure(for: connection)
+                stopRecoveryAndFail(connection, "mount.failure.start")
+            }
         }
     }
 
@@ -140,23 +177,44 @@ public final class MountCoordinator: ObservableObject {
         intendedMounted.remove(connection.id)
         cancelRecovery(for: connection)
         healthTasks.removeValue(forKey: connection.id)?.cancel()
+        stabilityTasks.removeValue(forKey: connection.id)?.cancel()
         statuses[connection.id] = .disconnecting
         append("Smontaggio in corso…", for: connection)
         do {
             try rclone.unmount(at: URL(fileURLWithPath: connection.mountPath))
             discardProcess(for: connection, terminate: true)
-            statuses[connection.id] = monitor.isMounted(at: URL(fileURLWithPath: connection.mountPath)) ? .failed("Il drive risulta ancora montato.") : .disconnected
+            statuses[connection.id] = monitor.isMounted(at: URL(fileURLWithPath: connection.mountPath)) ? .failed("mount.failure.still_mounted") : .disconnected
             if case .disconnected = statuses[connection.id] { removeConfiguration(for: connection) }
             append("Drive smontato.", for: connection)
         } catch {
-            statuses[connection.id] = .failed(error.localizedDescription)
-            append(error.localizedDescription, for: connection)
+            if monitor.isMounted(at: URL(fileURLWithPath: connection.mountPath)) {
+                intendedMounted.insert(connection.id)
+                statuses[connection.id] = .mounted
+                startHealthMonitor(for: connection)
+            } else {
+                discardProcess(for: connection, terminate: true)
+                statuses[connection.id] = .disconnected
+                removeConfiguration(for: connection)
+            }
+            append(SensitiveLogRedactor.redact(error.localizedDescription, for: connection), for: connection)
         }
     }
 
     public func cancelRecovery(for connection: RemoteConnection) {
         retryTasks.removeValue(forKey: connection.id)?.cancel()
         retryCounts[connection.id] = 0
+    }
+
+    public func clearCache(for connection: RemoteConnection) async throws {
+        guard status(for: connection).allowsCacheCleanup,
+              !intendedMounted.contains(connection.id),
+              processes[connection.id]?.isRunning != true,
+              !cleaningCacheProfileIDs.contains(connection.id) else {
+            throw CacheUsageError.profileMounted
+        }
+        cleaningCacheProfileIDs.insert(connection.id)
+        defer { cleaningCacheProfileIDs.remove(connection.id) }
+        try await cacheCleaner(connection.id, cacheRoot)
     }
 
     public func reconcile(_ connections: [RemoteConnection]) {
@@ -179,6 +237,7 @@ public final class MountCoordinator: ObservableObject {
         processes.removeValue(forKey: connection.id)
         processTokens.removeValue(forKey: connection.id)
         healthTasks.removeValue(forKey: connection.id)?.cancel()
+        stabilityTasks.removeValue(forKey: connection.id)?.cancel()
         removeConfiguration(for: connection)
         guard intendedMounted.contains(connection.id) else { return }
         scheduleRecovery(for: connection, reason: "rclone terminato con codice \(status).")
@@ -186,13 +245,28 @@ public final class MountCoordinator: ObservableObject {
 
     private func scheduleRecovery(for connection: RemoteConnection, reason: String) {
         guard intendedMounted.contains(connection.id) else { return }
+        stabilityTasks.removeValue(forKey: connection.id)?.cancel()
+        issueHandler(AppIssue(
+            code: .mountInterrupted,
+            profileID: connection.id,
+            severity: .warning,
+            recovery: .retry
+        ))
         guard automaticReconnectEnabled() else {
-            stopRecoveryAndFail(connection, reason)
+            append(SensitiveLogRedactor.redact(reason, for: connection), for: connection)
+            stopRecoveryAndFail(connection, "mount.failure.interrupted")
             return
         }
         let attempt = retryCounts[connection.id, default: 0] + 1
         guard let delay = recoveryPolicy.delay(forAttempt: attempt) else {
-            stopRecoveryAndFail(connection, "Riconnessione non riuscita: \(reason)")
+            issueHandler(AppIssue(
+                code: .mountRecoveryExhausted,
+                profileID: connection.id,
+                severity: .error,
+                recovery: .retry
+            ))
+            append(SensitiveLogRedactor.redact(reason, for: connection), for: connection)
+            stopRecoveryAndFail(connection, "mount.failure.recovery_exhausted")
             return
         }
         retryCounts[connection.id] = attempt
@@ -220,12 +294,31 @@ public final class MountCoordinator: ObservableObject {
         }
     }
 
+    func isHealthMonitoring(_ connection: RemoteConnection) -> Bool {
+        healthTasks[connection.id] != nil
+    }
+
+    private func scheduleRecoveryBudgetReset(for connection: RemoteConnection, token: UUID) {
+        stabilityTasks.removeValue(forKey: connection.id)?.cancel()
+        stabilityTasks[connection.id] = Task { [weak self] in
+            guard let self else { return }
+            await self.stabilitySleeper(self.stabilityResetInterval)
+            guard !Task.isCancelled,
+                  self.intendedMounted.contains(connection.id),
+                  self.processTokens[connection.id] == token,
+                  case .mounted? = self.statuses[connection.id] else { return }
+            self.retryCounts[connection.id] = 0
+            self.stabilityTasks[connection.id] = nil
+        }
+    }
+
     @discardableResult
     func performHealthCheck(for connection: RemoteConnection) -> Bool {
         guard intendedMounted.contains(connection.id) else { return false }
         let processIsHealthy = processes[connection.id]?.isRunning ?? true
         let mountIsHealthy = monitor.isMounted(at: URL(fileURLWithPath: connection.mountPath))
         guard processIsHealthy, mountIsHealthy else {
+            stabilityTasks.removeValue(forKey: connection.id)?.cancel()
             discardProcess(for: connection, terminate: true)
             removeConfiguration(for: connection)
             scheduleRecovery(for: connection, reason: "Il mount non è più disponibile.")
@@ -244,8 +337,18 @@ public final class MountCoordinator: ObservableObject {
         intendedMounted.remove(connection.id)
         retryTasks.removeValue(forKey: connection.id)?.cancel()
         healthTasks.removeValue(forKey: connection.id)?.cancel()
+        stabilityTasks.removeValue(forKey: connection.id)?.cancel()
         statuses[connection.id] = .failed(message)
         append(message, for: connection)
+    }
+
+    private func reportMountFailure(for connection: RemoteConnection) {
+        issueHandler(AppIssue(
+            code: .mountInterrupted,
+            profileID: connection.id,
+            severity: .error,
+            recovery: .retry
+        ))
     }
 
     public func append(_ message: String, for connection: RemoteConnection) {
