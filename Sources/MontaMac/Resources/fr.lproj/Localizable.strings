@@ -159,3 +159,13 @@
 "Limite predefinito" = "Limite par défaut";
 "Spazio libero riservato: %lld GB" = "Espace libre réservé : %lld Go";
 "Ogni profilo può usare un limite diverso." = "Chaque profil peut utiliser une limite différente.";
+"Gestione cache" = "Gestion du cache";
+"Controlla lo spazio temporaneo usato da ogni drive." = "Contrôlez l’espace temporaire utilisé par chaque lecteur.";
+"Aggiorna" = "Actualiser";
+"Cache utilizzata" = "Cache utilisé";
+"Spazio disponibile" = "Espace disponible";
+"Pulisci" = "Nettoyer";
+"La cache dei drive attivi non può essere eliminata, per proteggere i trasferimenti in corso." = "Le cache des lecteurs actifs ne peut pas être supprimé afin de protéger les transferts en cours.";
+"Pulire la cache del profilo?" = "Nettoyer le cache de ce profil ?";
+"Elimina cache" = "Supprimer le cache";
+"Verranno eliminati solo i file temporanei di %@." = "Seuls les fichiers temporaires de %@ seront supprimés.";

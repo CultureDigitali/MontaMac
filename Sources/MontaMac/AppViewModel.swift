@@ -13,6 +13,8 @@ final class AppViewModel: ObservableObject {
     @Published var activitySummary = ActivitySummary()
     @Published var recentActivity: [ActivityEvent] = []
     @Published var cacheBytes: Int64 = 0
+    @Published var cacheSnapshot: CacheUsageSnapshot = .empty
+    @Published var isMeasuringCache = false
     @Published var statistics: [UUID: RemoteStatistics] = [:]
     @Published var refreshingStatistics: Set<UUID> = []
     @Published var profileScope: ProfileScope = .all
@@ -166,15 +168,44 @@ final class AppViewModel: ObservableObject {
         reloadDashboard()
         refreshCacheUsage()
     }
-    private func refreshCacheUsage() {
+    func refreshCacheUsage() {
         cacheRefreshTask?.cancel()
         let cacheRoot = coordinator.cacheRootURL
+        let profileIDs = connections.map(\.id)
+        isMeasuringCache = true
         cacheRefreshTask = Task { [weak self] in
-            let bytes = await Task.detached(priority: .utility) {
-                (try? DirectorySizeService().allocatedBytes(at: cacheRoot)) ?? 0
+            let result = await Task.detached(priority: .utility) {
+                Result { try CacheUsageService().snapshot(cacheRoot: cacheRoot, profileIDs: profileIDs) }
             }.value
             guard !Task.isCancelled else { return }
-            self?.cacheBytes = bytes
+            self?.isMeasuringCache = false
+            switch result {
+            case let .success(snapshot):
+                self?.cacheSnapshot = snapshot
+                self?.cacheBytes = snapshot.totalBytes
+            case let .failure(error):
+                self?.issueCenter.report(AppIssue(code: .cacheCleanupFailed, arguments: [error.localizedDescription], severity: .warning))
+            }
+        }
+    }
+
+    func clearCache(for connection: RemoteConnection) {
+        let status = coordinator.status(for: connection)
+        let isActive: Bool
+        switch status {
+        case .disconnected, .failed: isActive = false
+        default: isActive = true
+        }
+        let cacheRoot = coordinator.cacheRootURL
+        Task { [weak self] in
+            let result = await Task.detached(priority: .utility) {
+                Result { try CacheUsageService().clear(profileID: connection.id, cacheRoot: cacheRoot, isMounted: isActive) }
+            }.value
+            switch result {
+            case .success: self?.refreshCacheUsage()
+            case let .failure(error):
+                self?.issueCenter.report(AppIssue(code: .cacheCleanupFailed, profileID: connection.id, arguments: [error.localizedDescription], severity: .warning))
+            }
         }
     }
     func recordMounted(_ connection: RemoteConnection) {

@@ -159,3 +159,13 @@
 "Limite predefinito" = "Limite predefinito";
 "Spazio libero riservato: %lld GB" = "Spazio libero riservato: %lld GB";
 "Ogni profilo può usare un limite diverso." = "Ogni profilo può usare un limite diverso.";
+"Gestione cache" = "Gestione cache";
+"Controlla lo spazio temporaneo usato da ogni drive." = "Controlla lo spazio temporaneo usato da ogni drive.";
+"Aggiorna" = "Aggiorna";
+"Cache utilizzata" = "Cache utilizzata";
+"Spazio disponibile" = "Spazio disponibile";
+"Pulisci" = "Pulisci";
+"La cache dei drive attivi non può essere eliminata, per proteggere i trasferimenti in corso." = "La cache dei drive attivi non può essere eliminata, per proteggere i trasferimenti in corso.";
+"Pulire la cache del profilo?" = "Pulire la cache del profilo?";
+"Elimina cache" = "Elimina cache";
+"Verranno eliminati solo i file temporanei di %@." = "Verranno eliminati solo i file temporanei di %@.";
