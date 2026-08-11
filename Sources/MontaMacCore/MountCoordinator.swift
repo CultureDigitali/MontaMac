@@ -8,12 +8,13 @@ public final class MountCoordinator: ObservableObject {
     @Published public private(set) var statuses: [UUID: MountStatus] = [:]
     @Published public private(set) var logs: [UUID: [String]] = [:]
     @Published public private(set) var transferTotals: [UUID: Int64] = [:]
+    @Published public private(set) var transferSnapshots: [UUID: TransferSnapshot] = [:]
 
     private var processes: [UUID: any MountProcessHandling] = [:]
     private var processTokens: [UUID: UUID] = [:]
     private var configurationURLs: [UUID: URL] = [:]
     private var transferTrackers: [UUID: TransferProgressTracker] = [:]
-    private var statisticsBuffers: [UUID: String] = [:]
+    private var jsonParsers: [UUID: RcloneJSONLogParser] = [:]
     private var intendedMounted: Set<UUID> = []
     private var retryCounts: [UUID: Int] = [:]
     private var retryTasks: [UUID: Task<Void, Never>] = [:]
@@ -102,7 +103,8 @@ public final class MountCoordinator: ObservableObject {
             configurationURLs[connection.id] = config
             transferTotals[connection.id] = 0
             transferTrackers[connection.id] = TransferProgressTracker()
-            statisticsBuffers[connection.id] = ""
+            jsonParsers[connection.id] = RcloneJSONLogParser()
+            transferSnapshots[connection.id] = .idle
             let process = try rclone.startMount(arguments: rclone.mountArguments(for: connection, configURL: config, cacheDirectory: cache, cachePolicy: cachePolicyResolver.policy(for: connection))) { [weak self] output in
                 Task { @MainActor [weak self] in self?.consumeMountOutput(output, for: connection) }
             }
@@ -252,19 +254,21 @@ public final class MountCoordinator: ObservableObject {
     }
 
     private func consumeMountOutput(_ output: String, for connection: RemoteConnection) {
-        append(SensitiveLogRedactor.redact(output, for: connection), for: connection)
-        var buffer = statisticsBuffers[connection.id, default: ""]
-        buffer.append(output)
-        let parts = buffer.split(omittingEmptySubsequences: false) { $0 == "\n" || $0 == "\r" }
-        guard parts.count > 1 else { statisticsBuffers[connection.id] = buffer; return }
-        for line in parts.dropLast() {
-            guard let total = RcloneTransferStatisticsParser.totalBytes(from: String(line)) else { continue }
+        var parser = jsonParsers[connection.id, default: RcloneJSONLogParser()]
+        let events = parser.consume(output)
+        jsonParsers[connection.id] = parser
+        for event in events {
+            switch event {
+            case let .statistics(snapshot):
+                transferSnapshots[connection.id] = snapshot
             var tracker = transferTrackers[connection.id, default: TransferProgressTracker()]
-            let delta = tracker.consume(totalBytes: total)
+                let delta = tracker.consume(totalBytes: snapshot.bytes)
             transferTrackers[connection.id] = tracker
             if delta > 0 { transferTotals[connection.id, default: 0] += delta }
+            case let .log(message):
+                append(SensitiveLogRedactor.redact(message, for: connection), for: connection)
+            }
         }
-        statisticsBuffers[connection.id] = String(parts.last ?? "")
     }
 
     public func reportFailure(_ message: String, for connection: RemoteConnection) { stopRecoveryAndFail(connection, message) }

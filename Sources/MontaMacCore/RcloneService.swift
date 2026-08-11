@@ -18,8 +18,8 @@ public final class RcloneService: RcloneServicing {
             "--vfs-cache-max-age", "1h",
             "--dir-cache-time", "30s",
             "--buffer-size", "64M",
-            "--stats", "5s",
-            "--stats-one-line",
+            "--stats", "1s",
+            "--use-json-log",
             "--stats-log-level", "NOTICE",
             "--umask", "077",
         ] + cachePolicy.rcloneArguments

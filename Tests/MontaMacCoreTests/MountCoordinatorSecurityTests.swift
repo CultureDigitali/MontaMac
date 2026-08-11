@@ -61,12 +61,13 @@ final class MountCoordinatorSecurityTests: XCTestCase {
         let connection = makeConnection(mountPath: mountPath.path)
 
         await coordinator.mount(connection)
-        rclone.emit("Transferred: 2 Ki")
-        rclone.emit("B / 4 KiB, 50%, 0 B/s, ETA -\n")
+        rclone.emit(#"{"level":"notice","stats":{"bytes":2048,"totalBytes":4096,"speed":512,"eta":4,"transferring":[{"name":"a.bin","bytes":2048,"size":4096,"percentage":50,"speed":512,"eta":4}]"#)
+        rclone.emit("}}\n")
         await Task.yield()
         await Task.yield()
 
         XCTAssertEqual(coordinator.transferTotals[connection.id], 2_048)
+        XCTAssertEqual(coordinator.transferSnapshots[connection.id]?.currentFile, "a.bin")
     }
 
     func testUnexpectedProcessExitRemountsOnceAndReturnsToMounted() async throws {
