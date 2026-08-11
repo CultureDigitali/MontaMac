@@ -22,6 +22,12 @@ struct ConnectionEditorView: View {
                 TextField("Utente", text: $connection.username); SecureField("Password (Portachiavi)", text: $password)
                 TextField("Percorso remoto", text: $connection.remotePath); TextField("Cartella locale", text: $connection.mountPath)
                 TextField("Cartella profilo", text: $connection.profileGroup)
+                Picker("Limite cache", selection: $connection.cacheLimit) {
+                    Text("Predefinito").tag(nil as CacheLimit?)
+                    ForEach(CacheLimit.allCases) { limit in
+                        Text(LocalizedStringKey(limit.titleKey)).tag(Optional(limit))
+                    }
+                }
                 Toggle("Preferito", isOn: $connection.isFavorite)
             }.formStyle(.grouped)
             if let error = connection.validationError { Text(LocalizedStringKey(error)).foregroundStyle(.red).font(.caption) }

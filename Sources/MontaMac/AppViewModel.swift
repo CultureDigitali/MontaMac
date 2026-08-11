@@ -9,15 +9,18 @@ final class AppViewModel: ObservableObject {
     @Published var selection: UUID?
     @Published var isEditorPresented = false
     @Published var editingConnection: RemoteConnection?
-    @Published var showDashboard = true
+    @Published var utilityDestination: UtilityDestination? = .dashboard
     @Published var activitySummary = ActivitySummary()
     @Published var recentActivity: [ActivityEvent] = []
     @Published var cacheBytes: Int64 = 0
+    @Published var cacheSnapshot: CacheUsageSnapshot = .empty
+    @Published var isMeasuringCache = false
     @Published var statistics: [UUID: RemoteStatistics] = [:]
     @Published var refreshingStatistics: Set<UUID> = []
     @Published var profileScope: ProfileScope = .all
     @Published var profileQuery = ""
-    let coordinator = MountCoordinator()
+    let coordinator: MountCoordinator
+    let issueCenter: IssueCenter
     private let store = ConnectionStore()
     private let credentials = CredentialStore()
     private lazy var profileSecurityCleaner = ProfileSecurityCleaner(credentials: credentials)
@@ -29,11 +32,21 @@ final class AppViewModel: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
-    init() {
-        connections = (try? store.load()) ?? []
+    init(issueCenter: IssueCenter = IssueCenter()) {
+        coordinator = MountCoordinator(
+            automaticReconnectEnabled: { AppSettings.automaticReconnectValue() },
+            issueHandler: issueCenter.report
+        )
+        self.issueCenter = issueCenter
+        do { connections = try store.load() }
+        catch {
+            connections = []
+            issueCenter.report(AppIssue(code: .profileSaveFailed, arguments: [error.localizedDescription], severity: .error))
+        }
         selection = connections.first?.id
         coordinator.reconcile(connections)
         reloadDashboard()
+        observeCoordinator()
         observeTransferTotals()
         refreshCacheUsage()
     }
@@ -56,9 +69,16 @@ final class AppViewModel: ObservableObject {
         connection.profileGroup = RemoteConnection.normalizedProfileGroup(connection.profileGroup)
         if let index = connections.firstIndex(where: { $0.id == connection.id }) { connections[index] = connection } else { connections.append(connection) }
         selection = connection.id
-        try? store.save(connections)
-        if !password.isEmpty { try? credentials.save(password: password, for: connection.id) }
-        isEditorPresented = false
+        do {
+            try store.save(connections)
+            if !password.isEmpty { try credentials.save(password: password, for: connection.id) }
+            isEditorPresented = false
+        } catch {
+            issueCenter.report(AppIssue(
+                code: password.isEmpty ? .profileSaveFailed : .credentialSaveFailed,
+                profileID: connection.id, arguments: [error.localizedDescription], severity: .error
+            ))
+        }
     }
 
     func removeSelected() {
@@ -69,15 +89,16 @@ final class AppViewModel: ObservableObject {
             selection = connections.first?.id
             try store.save(connections)
         } catch {
-            coordinator.reportFailure("Profilo non eliminato: \(error.localizedDescription)", for: connection)
+            issueCenter.report(AppIssue(code: .profileSaveFailed, profileID: connection.id, arguments: [error.localizedDescription], severity: .error))
         }
     }
 
     func mountSelected() { guard let connection = selectedConnection else { return }; mount(connection) }
     func mount(_ connection: RemoteConnection) {
-        let missing = RequirementChecker().check().filter { !$0.isInstalled }.map(\.title)
+        let missing = RequirementChecker.mountBlockingRequirements(in: RequirementChecker().check()).map(\.title)
         guard missing.isEmpty else {
-            coordinator.reportFailure("Installa prima: \(missing.joined(separator: ", ")).", for: connection)
+            coordinator.reportFailure("mount.failure.requirements", for: connection)
+            issueCenter.report(AppIssue(code: .mountInterrupted, profileID: connection.id, severity: .warning, recovery: .openRequirements))
             return
         }
         Task {
@@ -97,8 +118,14 @@ final class AppViewModel: ObservableObject {
         }
     }
     func unmountSelected() { guard let connection = selectedConnection else { return }; unmount(connection) }
-    func unmount(_ connection: RemoteConnection) { Task { await coordinator.unmount(connection); try? activityStore.record(.unmounted(connectionID: connection.id, at: .now)); reloadDashboard() } }
-    func selectProfile(_ connection: RemoteConnection) { selection = connection.id; showDashboard = false }
+    func unmount(_ connection: RemoteConnection) { Task {
+        await coordinator.unmount(connection)
+        do { try activityStore.record(.unmounted(connectionID: connection.id, at: .now)) }
+        catch { reportActivityError(error, connectionID: connection.id) }
+        reloadDashboard()
+    } }
+    func selectProfile(_ connection: RemoteConnection) { selection = connection.id; utilityDestination = nil }
+    func selectUtility(_ destination: UtilityDestination) { utilityDestination = destination; selection = nil }
     func selectAndToggleMount(_ connection: RemoteConnection) {
         selectProfile(connection)
         if case .mounted = coordinator.status(for: connection) { unmount(connection) } else { mount(connection) }
@@ -106,15 +133,30 @@ final class AppViewModel: ObservableObject {
     func toggleFavorite(_ connection: RemoteConnection) {
         guard let index = connections.firstIndex(where: { $0.id == connection.id }) else { return }
         connections[index].isFavorite.toggle()
-        try? store.save(connections)
+        do { try store.save(connections) }
+        catch { issueCenter.report(AppIssue(code: .profileSaveFailed, profileID: connection.id, arguments: [error.localizedDescription], severity: .error)) }
     }
     func openInFinder() { guard let path = selectedConnection?.mountPath else { return }; NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
-    func reloadDashboard() { activitySummary = (try? activityStore.summary(since: Calendar.current.date(byAdding: .day, value: -30, to: .now) ?? .distantPast)) ?? ActivitySummary(); recentActivity = (try? activityStore.recentEvents()) ?? [] }
+    func reloadDashboard() {
+        do {
+            activitySummary = try activityStore.summary(since: Calendar.current.date(byAdding: .day, value: -30, to: .now) ?? .distantPast)
+            recentActivity = try activityStore.recentEvents()
+        } catch {
+            activitySummary = ActivitySummary()
+            recentActivity = []
+            reportActivityError(error, connectionID: nil)
+        }
+    }
     private func observeTransferTotals() {
         coordinator.$transferTotals
             .sink { [weak self] totals in
                 Task { @MainActor [weak self] in self?.persistTransferTotals(totals) }
             }
+            .store(in: &cancellables)
+    }
+    private func observeCoordinator() {
+        coordinator.objectWillChange
+            .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
     }
     private func persistTransferTotals(_ totals: [UUID: Int64]) {
@@ -124,35 +166,63 @@ final class AppViewModel: ObservableObject {
             let delta = tracker.consume(totalBytes: total)
             transferTrackers[connectionID] = tracker
             guard delta > 0 else { continue }
-            try? activityStore.record(.transfer(connectionID: connectionID, bytes: delta, at: .now))
+            do { try activityStore.record(.transfer(connectionID: connectionID, bytes: delta, at: .now)) }
+            catch { reportActivityError(error, connectionID: connectionID) }
             recordedTransfer = true
         }
         if recordedTransfer {
             reloadDashboard()
-            refreshCacheUsage()
         }
     }
     func refreshDashboardMetrics() {
         reloadDashboard()
         refreshCacheUsage()
     }
-    private func refreshCacheUsage() {
+    func refreshCacheUsage() {
         cacheRefreshTask?.cancel()
         let cacheRoot = coordinator.cacheRootURL
+        let profileIDs = connections.map(\.id)
+        isMeasuringCache = true
+        let measurement = Task.detached(priority: .utility) {
+            Result { try CacheUsageService().snapshot(cacheRoot: cacheRoot, profileIDs: profileIDs) }
+        }
         cacheRefreshTask = Task { [weak self] in
-            let bytes = await Task.detached(priority: .utility) {
-                (try? DirectorySizeService().allocatedBytes(at: cacheRoot)) ?? 0
-            }.value
+            let result = await withTaskCancellationHandler {
+                await measurement.value
+            } onCancel: {
+                measurement.cancel()
+            }
             guard !Task.isCancelled else { return }
-            self?.cacheBytes = bytes
+            self?.isMeasuringCache = false
+            switch result {
+            case let .success(snapshot):
+                self?.cacheSnapshot = snapshot
+                self?.cacheBytes = snapshot.totalBytes
+            case let .failure(error):
+                self?.issueCenter.report(AppIssue(code: .cacheCleanupFailed, arguments: [error.localizedDescription], severity: .warning))
+            }
+        }
+    }
+
+    func clearCache(for connection: RemoteConnection) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await coordinator.clearCache(for: connection)
+                refreshCacheUsage()
+            } catch {
+                issueCenter.report(AppIssue(code: .cacheCleanupFailed, profileID: connection.id, arguments: [error.localizedDescription], severity: .warning))
+            }
         }
     }
     func recordMounted(_ connection: RemoteConnection) {
         if let index = connections.firstIndex(where: { $0.id == connection.id }) {
             connections[index].markUsed()
-            try? store.save(connections)
+            do { try store.save(connections) }
+            catch { issueCenter.report(AppIssue(code: .profileSaveFailed, profileID: connection.id, arguments: [error.localizedDescription], severity: .error)) }
         }
-        try? activityStore.record(.mounted(connectionID: connection.id, at: .now))
+        do { try activityStore.record(.mounted(connectionID: connection.id, at: .now)) }
+        catch { reportActivityError(error, connectionID: connection.id) }
         reloadDashboard()
     }
     func refreshStatistics(for connection: RemoteConnection) {
@@ -167,5 +237,9 @@ final class AppViewModel: ObservableObject {
     func refreshSelectedStatistics() {
         guard let connection = selectedConnection else { return }
         refreshStatistics(for: connection)
+    }
+
+    private func reportActivityError(_ error: Error, connectionID: UUID?) {
+        issueCenter.report(AppIssue(code: .activityWriteFailed, profileID: connectionID, arguments: [error.localizedDescription], severity: .error))
     }
 }

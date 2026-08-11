@@ -3,7 +3,7 @@ import MontaMacCore
 
 struct ConnectionRow: View {
     let connection: RemoteConnection; let status: MountStatus
-    private var color: Color { switch status { case .mounted: return .green; case .connecting, .disconnecting: return .orange; case .failed: return .red; case .disconnected: return .secondary } }
+    private var color: Color { switch status { case .mounted: return .green; case .connecting, .reconnecting, .disconnecting: return .orange; case .failed: return .red; case .disconnected: return .secondary } }
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "externaldrive.fill").foregroundStyle(.tint)

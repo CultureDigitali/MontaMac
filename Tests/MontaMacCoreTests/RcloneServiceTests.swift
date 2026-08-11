@@ -7,7 +7,8 @@ final class RcloneServiceTests: XCTestCase {
         let arguments = RcloneService(rcloneURL: URL(fileURLWithPath: "/usr/local/bin/rclone")).mountArguments(
             for: connection,
             configURL: URL(fileURLWithPath: "/tmp/rclone.conf"),
-            cacheDirectory: URL(fileURLWithPath: "/tmp/cache")
+            cacheDirectory: URL(fileURLWithPath: "/tmp/cache"),
+            cachePolicy: CachePolicy(limit: .tenGB, reservedFreeSpaceGB: 7)
         )
 
         XCTAssertTrue(arguments.contains("/Users/anna/Remote Files"))
@@ -18,9 +19,13 @@ final class RcloneServiceTests: XCTestCase {
         XCTAssertTrue(arguments.contains("1h"))
         XCTAssertTrue(arguments.contains("/tmp/cache"))
         XCTAssertTrue(arguments.contains("--stats"))
-        XCTAssertTrue(arguments.contains("5s"))
-        XCTAssertTrue(arguments.contains("--stats-one-line"))
+        XCTAssertTrue(arguments.contains("1s"))
+        XCTAssertTrue(arguments.contains("--use-json-log"))
+        XCTAssertFalse(arguments.contains("--stats-one-line"))
         XCTAssertTrue(arguments.contains("--stats-log-level"))
         XCTAssertTrue(arguments.contains("NOTICE"))
+        XCTAssertEqual(arguments[arguments.firstIndex(of: "--vfs-cache-max-size")! + 1], "10G")
+        XCTAssertEqual(arguments[arguments.firstIndex(of: "--vfs-cache-min-free-space")! + 1], "7G")
+        XCTAssertEqual(arguments[arguments.firstIndex(of: "--vfs-cache-poll-interval")! + 1], "1m")
     }
 }

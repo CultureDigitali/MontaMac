@@ -22,6 +22,19 @@ final class AppCommandAvailabilityTests: XCTestCase {
         XCTAssertFalse(state.canDelete)
     }
 
+    func testReconnectingSelectionCanBeCancelledButNotEdited() {
+        let availability = AppCommandAvailability(
+            hasSelection: true,
+            status: .reconnecting(attempt: 1, delay: 2)
+        )
+
+        XCTAssertFalse(availability.canMount)
+        XCTAssertTrue(availability.canUnmount)
+        XCTAssertFalse(availability.canEdit)
+        XCTAssertFalse(availability.canDelete)
+        XCTAssertFalse(availability.canOpenFinder)
+    }
+
     func testDisconnectedSelectionEnablesMountOnly() {
         let state = AppCommandAvailability(hasSelection: true, status: .disconnected)
 

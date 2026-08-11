@@ -9,6 +9,7 @@ final class ConnectionStoreCompatibilityTests: XCTestCase {
         XCTAssertEqual(decoded[0].profileGroup, "Senza cartella")
         XCTAssertFalse(decoded[0].isFavorite)
         XCTAssertNil(decoded[0].lastUsedAt)
+        XCTAssertNil(decoded[0].cacheLimit)
     }
 
     func testMarkUsedStoresProvidedDate() {

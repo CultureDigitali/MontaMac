@@ -9,7 +9,7 @@ public final class RcloneService: RcloneServicing {
 
     public var isAvailable: Bool { FileManager.default.isExecutableFile(atPath: rcloneURL.path) }
 
-    public func mountArguments(for connection: RemoteConnection, configURL: URL, cacheDirectory: URL) -> [String] {
+    public func mountArguments(for connection: RemoteConnection, configURL: URL, cacheDirectory: URL, cachePolicy: CachePolicy) -> [String] {
         [
             "nfsmount", connection.remoteSpec, connection.mountPath,
             "--config", configURL.path,
@@ -18,14 +18,14 @@ public final class RcloneService: RcloneServicing {
             "--vfs-cache-max-age", "1h",
             "--dir-cache-time", "30s",
             "--buffer-size", "64M",
-            "--stats", "5s",
-            "--stats-one-line",
+            "--stats", "1s",
+            "--use-json-log",
             "--stats-log-level", "NOTICE",
             "--umask", "077",
-        ]
+        ] + cachePolicy.rcloneArguments
     }
 
-    @discardableResult public func startMount(arguments: [String], output: @escaping @Sendable (String) -> Void) throws -> Process {
+    @discardableResult public func startMount(arguments: [String], output: @escaping @Sendable (String) -> Void) throws -> any MountProcessHandling {
         guard isAvailable else { throw RcloneError.notInstalled }
         let process = Process()
         process.executableURL = rcloneURL

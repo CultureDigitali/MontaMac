@@ -20,6 +20,7 @@ public struct DirectorySizeService: Sendable {
 
         var bytes: Int64 = 0
         while let url = enumerator.nextObject() as? URL {
+            if Task.isCancelled { throw CancellationError() }
             guard let values = try? url.resourceValues(forKeys: keys),
                   values.isSymbolicLink != true,
                   values.isRegularFile == true else { continue }

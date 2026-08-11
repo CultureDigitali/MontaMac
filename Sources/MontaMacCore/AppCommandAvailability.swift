@@ -41,6 +41,13 @@ public struct AppCommandAvailability: Equatable, Sendable {
             canUnmount = false
             canOpenFinder = false
             canRefreshStatistics = false
+        case .reconnecting:
+            canEdit = false
+            canDelete = false
+            canMount = false
+            canUnmount = true
+            canOpenFinder = false
+            canRefreshStatistics = false
         }
     }
 }

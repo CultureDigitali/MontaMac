@@ -8,7 +8,7 @@ struct RequirementsView: View {
     @State private var isConfirmationPresented = false
     @State private var errorMessage: String?
 
-    private var isReady: Bool { statuses.allSatisfy(\.isInstalled) }
+    private var isReady: Bool { RequirementChecker.mountBlockingRequirements(in: statuses).isEmpty }
     private var command: String? { RequirementChecker.installationCommand(for: statuses) }
 
     var body: some View {

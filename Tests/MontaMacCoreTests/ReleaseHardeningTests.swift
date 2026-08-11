@@ -6,11 +6,11 @@ final class ReleaseHardeningTests: XCTestCase {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     }
 
-    func testReleaseMetadataIsVersion211() throws {
+    func testReleaseMetadataIsVersion220() throws {
         let data = try Data(contentsOf: projectRoot.appendingPathComponent("Resources/Info.plist"))
         let info = try XCTUnwrap(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
-        XCTAssertEqual(info["CFBundleShortVersionString"] as? String, "2.1.1")
-        XCTAssertEqual(info["CFBundleVersion"] as? String, "5")
+        XCTAssertEqual(info["CFBundleShortVersionString"] as? String, "2.2.0")
+        XCTAssertEqual(info["CFBundleVersion"] as? String, "6")
     }
 
     func testBuildScriptsEnableHardenedRuntimeAndOptionalInstallerSigning() throws {
@@ -20,6 +20,22 @@ final class ReleaseHardeningTests: XCTestCase {
         XCTAssertTrue(appScript.contains("--options runtime"))
         XCTAssertTrue(appScript.contains("MONTAMAC_SIGN_IDENTITY"))
         XCTAssertTrue(pkgScript.contains("MONTAMAC_INSTALLER_IDENTITY"))
-        XCTAssertTrue(pkgScript.contains("MontaMac-2.1.1.pkg"))
+        XCTAssertTrue(pkgScript.contains("APP_VERSION"))
+        XCTAssertTrue(appScript.contains("MONTAMAC_RELEASE_BUILD"))
+        XCTAssertTrue(appScript.contains("MONTAMAC_SPARKLE_PUBLIC_KEY"))
+        XCTAssertTrue(pkgScript.contains("MONTAMAC_RELEASE_BUILD"))
+        XCTAssertTrue(pkgScript.contains(".pkg.sha256"))
+    }
+
+    func testReleaseWorkflowRequiresSigningNotarizationAndAppcast() throws {
+        let workflow = try String(contentsOf: projectRoot.appendingPathComponent(".github/workflows/release.yml"), encoding: .utf8)
+
+        XCTAssertTrue(workflow.contains("notarytool submit"))
+        XCTAssertTrue(workflow.contains("stapler staple"))
+        XCTAssertTrue(workflow.contains("generate_appcast"))
+        XCTAssertTrue(workflow.contains("SPARKLE_PRIVATE_KEY"))
+        XCTAssertTrue(workflow.contains("gh release create"))
+        XCTAssertTrue(workflow.contains("actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5"))
+        XCTAssertFalse(workflow.contains("actions/checkout@v4"))
     }
 }

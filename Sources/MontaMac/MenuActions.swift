@@ -11,6 +11,9 @@ struct MenuActions {
     let openFinder: () -> Void
     let refreshStatistics: () -> Void
     let showDashboard: () -> Void
+    let showTransfers: () -> Void
+    let showCache: () -> Void
+    let showIssues: () -> Void
     let showProfiles: () -> Void
     let showFavorites: () -> Void
     let showMounted: () -> Void
