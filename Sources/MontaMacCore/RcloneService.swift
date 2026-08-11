@@ -25,7 +25,7 @@ public final class RcloneService: RcloneServicing {
         ]
     }
 
-    @discardableResult public func startMount(arguments: [String], output: @escaping @Sendable (String) -> Void) throws -> Process {
+    @discardableResult public func startMount(arguments: [String], output: @escaping @Sendable (String) -> Void) throws -> any MountProcessHandling {
         guard isAvailable else { throw RcloneError.notInstalled }
         let process = Process()
         process.executableURL = rcloneURL
