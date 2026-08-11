@@ -7,13 +7,18 @@ struct ProfileManagerView: View {
     var body: some View {
         List {
             Section {
-                Button {
-                    viewModel.showDashboard = true
-                    viewModel.selection = nil
-                } label: {
-                    Label("Dashboard", systemImage: "square.grid.2x2.fill")
+                ForEach(UtilityDestination.allCases) { destination in
+                    Button {
+                        viewModel.selectUtility(destination)
+                    } label: {
+                        HStack {
+                            Label(LocalizedStringKey(destination.titleKey), systemImage: destination.systemImage)
+                            Spacer()
+                            if viewModel.utilityDestination == destination { Image(systemName: "checkmark").foregroundStyle(.secondary) }
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
             Section("Profili") {
@@ -39,6 +44,7 @@ struct ProfileManagerView: View {
                     ProfileRow(
                         connection: connection,
                         status: viewModel.coordinator.status(for: connection),
+                        snapshot: viewModel.coordinator.transferSnapshots[connection.id] ?? .idle,
                         onSelect: { viewModel.selectProfile(connection) },
                         onToggleFavorite: { viewModel.toggleFavorite(connection) },
                         onToggleMount: { viewModel.selectAndToggleMount(connection) }
@@ -65,6 +71,7 @@ struct ProfileManagerView: View {
 private struct ProfileRow: View {
     let connection: RemoteConnection
     let status: MountStatus
+    let snapshot: TransferSnapshot
     let onSelect: () -> Void
     let onToggleFavorite: () -> Void
     let onToggleMount: () -> Void
@@ -79,6 +86,12 @@ private struct ProfileRow: View {
             .buttonStyle(.plain)
             .simultaneousGesture(TapGesture(count: 2).onEnded(onToggleMount))
             .accessibilityLabel("Apri profilo \(connection.name)")
+
+            if snapshot.speedBytesPerSecond > 0 {
+                Text(ByteCountFormatter.string(fromByteCount: Int64(snapshot.speedBytesPerSecond), countStyle: .file) + "/s")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.cyan)
+            }
 
             Button(action: onToggleFavorite) {
                 Image(systemName: connection.isFavorite ? "star.fill" : "star")

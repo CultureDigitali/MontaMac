@@ -8,7 +8,6 @@ struct MainWindowView: View {
     @State private var isHelpPresented = false
     @State private var isRequirementsPresented = false
     @State private var isDeleteConfirmationPresented = false
-    @State private var isIssueCenterPresented = false
     private var onboardingBinding: Binding<Bool> { Binding(get: { !hasSeenOnboarding }, set: { if !$0 { hasSeenOnboarding = true } }) }
 
     var body: some View {
@@ -21,16 +20,42 @@ struct MainWindowView: View {
                 Button { isDeleteConfirmationPresented = true } label: { Image(systemName: "trash") }.disabled(!viewModel.commandAvailability.canDelete)
             }
         } detail: {
-            if viewModel.showDashboard || viewModel.selectedConnection == nil {
+            if viewModel.utilityDestination == .dashboard || (viewModel.utilityDestination == nil && viewModel.selectedConnection == nil) {
                 DashboardView(
                     summary: viewModel.activitySummary,
                     events: viewModel.recentActivity,
                     connections: viewModel.connections,
                     cacheBytes: viewModel.cacheBytes,
+                    transferSnapshots: viewModel.coordinator.transferSnapshots,
                     onAdd: viewModel.addConnection,
                     onToggleProfile: viewModel.selectAndToggleMount,
                     onRefresh: viewModel.refreshDashboardMetrics
                 )
+            } else if viewModel.utilityDestination == .transfers {
+                TransferCenterView(
+                    connections: viewModel.connections,
+                    statuses: viewModel.coordinator.statuses,
+                    snapshots: viewModel.coordinator.transferSnapshots,
+                    totals: viewModel.coordinator.transferTotals
+                )
+            } else if viewModel.utilityDestination == .cache {
+                CacheManagementView(
+                    snapshot: viewModel.cacheSnapshot,
+                    connections: viewModel.connections,
+                    statuses: viewModel.coordinator.statuses,
+                    isMeasuring: viewModel.isMeasuringCache,
+                    onRefresh: viewModel.refreshCacheUsage,
+                    onClear: viewModel.clearCache
+                )
+            } else if viewModel.utilityDestination == .issues {
+                IssueCenterView(
+                    issueCenter: viewModel.issueCenter,
+                    connections: viewModel.connections,
+                    statuses: viewModel.coordinator.statuses,
+                    logs: viewModel.coordinator.logs,
+                    onRecovery: recover
+                )
+                .environmentObject(settings)
             } else if let connection = viewModel.selectedConnection {
                 ConnectionDetailView(connection: connection, viewModel: viewModel)
             }
@@ -39,7 +64,7 @@ struct MainWindowView: View {
             if let connection = viewModel.editingConnection { ConnectionEditorView(connection: connection, onSave: viewModel.save) }
         }
         .frame(minWidth: 860, minHeight: 540)
-        .onChange(of: viewModel.selection) { _, newValue in if newValue != nil { viewModel.showDashboard = false } }
+        .onChange(of: viewModel.selection) { _, newValue in if newValue != nil { viewModel.utilityDestination = nil } }
         .onAppear { presentRequirementsIfNeeded() }
         .onChange(of: hasSeenOnboarding) { _, isComplete in
             if isComplete { presentRequirementsIfNeeded() }
@@ -47,16 +72,6 @@ struct MainWindowView: View {
         .sheet(isPresented: onboardingBinding) { OnboardingView(isPresented: onboardingBinding) }
         .sheet(isPresented: $isHelpPresented) { HelpView() }
         .sheet(isPresented: $isRequirementsPresented) { RequirementsView() }
-        .sheet(isPresented: $isIssueCenterPresented) {
-            IssueCenterView(
-                issueCenter: viewModel.issueCenter,
-                connections: viewModel.connections,
-                statuses: viewModel.coordinator.statuses,
-                logs: viewModel.coordinator.logs,
-                onRecovery: recover
-            )
-            .environmentObject(settings)
-        }
         .confirmationDialog("Eliminare il profilo?", isPresented: $isDeleteConfirmationPresented, titleVisibility: .visible) {
             Button("Elimina profilo", role: .destructive, action: viewModel.removeSelected)
             Button("Annulla", role: .cancel) { }
@@ -69,7 +84,7 @@ struct MainWindowView: View {
                 IssueBanner(
                     issue: issue,
                     message: localizedMessage(issue),
-                    onOpen: { isIssueCenterPresented = true },
+                    onOpen: { viewModel.selectUtility(.issues) },
                     onDismiss: viewModel.issueCenter.dismissBanner
                 )
                 .padding(12)
@@ -92,14 +107,17 @@ struct MainWindowView: View {
             unmount: viewModel.unmountSelected,
             openFinder: viewModel.openInFinder,
             refreshStatistics: viewModel.refreshSelectedStatistics,
-            showDashboard: { viewModel.showDashboard = true; viewModel.selection = nil },
-            showProfiles: { viewModel.profileScope = .all; viewModel.showDashboard = false },
-            showFavorites: { viewModel.profileScope = .favorites; viewModel.showDashboard = false },
-            showMounted: { viewModel.profileScope = .mounted; viewModel.showDashboard = false },
+            showDashboard: { viewModel.selectUtility(.dashboard) },
+            showTransfers: { viewModel.selectUtility(.transfers) },
+            showCache: { viewModel.selectUtility(.cache) },
+            showIssues: { viewModel.selectUtility(.issues) },
+            showProfiles: { viewModel.profileScope = .all; viewModel.utilityDestination = nil },
+            showFavorites: { viewModel.profileScope = .favorites; viewModel.utilityDestination = nil },
+            showMounted: { viewModel.profileScope = .mounted; viewModel.utilityDestination = nil },
             showRequirements: { isRequirementsPresented = true },
             showHelp: { isHelpPresented = true },
             showOnboarding: { hasSeenOnboarding = false },
-            showDiagnostics: { viewModel.showDashboard = false }
+            showDiagnostics: { viewModel.selectUtility(.issues) }
         )
     }
 

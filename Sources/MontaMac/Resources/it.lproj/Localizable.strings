@@ -169,3 +169,10 @@
 "Pulire la cache del profilo?" = "Pulire la cache del profilo?";
 "Elimina cache" = "Elimina cache";
 "Verranno eliminati solo i file temporanei di %@." = "Verranno eliminati solo i file temporanei di %@.";
+"Trasferimenti" = "Trasferimenti";
+"Velocità, avanzamento e attività in tempo reale." = "Velocità, avanzamento e attività in tempo reale.";
+"Velocità attuale" = "Velocità attuale";
+"Trasferimenti attivi" = "Trasferimenti attivi";
+"Trasferiti nella sessione" = "Trasferiti nella sessione";
+"Nessun file in trasferimento" = "Nessun file in trasferimento";
+"ETA %llds" = "Tempo restante %llds";

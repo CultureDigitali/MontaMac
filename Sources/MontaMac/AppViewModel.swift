@@ -9,7 +9,7 @@ final class AppViewModel: ObservableObject {
     @Published var selection: UUID?
     @Published var isEditorPresented = false
     @Published var editingConnection: RemoteConnection?
-    @Published var showDashboard = true
+    @Published var utilityDestination: UtilityDestination? = .dashboard
     @Published var activitySummary = ActivitySummary()
     @Published var recentActivity: [ActivityEvent] = []
     @Published var cacheBytes: Int64 = 0
@@ -43,6 +43,7 @@ final class AppViewModel: ObservableObject {
         selection = connections.first?.id
         coordinator.reconcile(connections)
         reloadDashboard()
+        observeCoordinator()
         observeTransferTotals()
         refreshCacheUsage()
     }
@@ -119,7 +120,8 @@ final class AppViewModel: ObservableObject {
         catch { reportActivityError(error, connectionID: connection.id) }
         reloadDashboard()
     } }
-    func selectProfile(_ connection: RemoteConnection) { selection = connection.id; showDashboard = false }
+    func selectProfile(_ connection: RemoteConnection) { selection = connection.id; utilityDestination = nil }
+    func selectUtility(_ destination: UtilityDestination) { utilityDestination = destination; selection = nil }
     func selectAndToggleMount(_ connection: RemoteConnection) {
         selectProfile(connection)
         if case .mounted = coordinator.status(for: connection) { unmount(connection) } else { mount(connection) }
@@ -146,6 +148,11 @@ final class AppViewModel: ObservableObject {
             .sink { [weak self] totals in
                 Task { @MainActor [weak self] in self?.persistTransferTotals(totals) }
             }
+            .store(in: &cancellables)
+    }
+    private func observeCoordinator() {
+        coordinator.objectWillChange
+            .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
     }
     private func persistTransferTotals(_ totals: [UUID: Int64]) {

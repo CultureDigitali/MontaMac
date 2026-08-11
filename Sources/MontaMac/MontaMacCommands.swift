@@ -38,9 +38,13 @@ struct MontaMacCommands: Commands {
 
         CommandMenu(settings.localized("Visualizza")) {
             Button(settings.localized("Dashboard")) { actions?.showDashboard() }.keyboardShortcut("1", modifiers: .command)
-            Button(settings.localized("Profili")) { actions?.showProfiles() }.keyboardShortcut("2", modifiers: .command)
-            Button(settings.localized("Preferiti")) { actions?.showFavorites() }.keyboardShortcut("3", modifiers: .command)
-            Button(settings.localized("Montati")) { actions?.showMounted() }.keyboardShortcut("4", modifiers: .command)
+            Button(settings.localized("Trasferimenti")) { actions?.showTransfers() }.keyboardShortcut("2", modifiers: .command)
+            Button(settings.localized("Gestione cache")) { actions?.showCache() }.keyboardShortcut("3", modifiers: .command)
+            Button(settings.localized("Problemi")) { actions?.showIssues() }.keyboardShortcut("4", modifiers: .command)
+            Divider()
+            Button(settings.localized("Profili")) { actions?.showProfiles() }
+            Button(settings.localized("Preferiti")) { actions?.showFavorites() }
+            Button(settings.localized("Montati")) { actions?.showMounted() }
         }
 
         CommandMenu(settings.localized("Lingua")) {

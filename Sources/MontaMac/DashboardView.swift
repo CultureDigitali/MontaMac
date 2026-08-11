@@ -7,6 +7,7 @@ struct DashboardView: View {
     let events: [ActivityEvent]
     let connections: [RemoteConnection]
     let cacheBytes: Int64
+    let transferSnapshots: [UUID: TransferSnapshot]
     let onAdd: () -> Void
     let onToggleProfile: (RemoteConnection) -> Void
     let onRefresh: () -> Void
@@ -21,6 +22,7 @@ struct DashboardView: View {
             LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 12) {
                 MetricCard(title: "Drive configurati", value: "\(connections.count)", icon: "externaldrive.fill", color: .blue)
                 MetricCard(title: "Trasferiti", value: formattedBytes(summary.transferredBytes), icon: "arrow.left.arrow.right", color: .cyan)
+                MetricCard(title: "Velocità attuale", value: formattedBytes(Int64(transferSnapshots.values.reduce(0) { $0 + $1.speedBytesPerSecond })) + "/s", icon: "gauge.with.dots.needle.67percent", color: .cyan)
                 MetricCard(title: "Cache temporanea", value: formattedBytes(cacheBytes), icon: "internaldrive.fill", color: .orange, subtitle: "Aggiornamento automatico")
                 MetricCard(title: "Errori", value: "\(summary.failureCount)", icon: "exclamationmark.triangle.fill", color: summary.failureCount == 0 ? .green : .orange)
                 MetricCard(title: "Sessioni", value: "\(summary.mountCount)", icon: "clock.fill", color: .indigo)

@@ -169,3 +169,10 @@
 "Pulire la cache del profilo?" = "Nettoyer le cache de ce profil ?";
 "Elimina cache" = "Supprimer le cache";
 "Verranno eliminati solo i file temporanei di %@." = "Seuls les fichiers temporaires de %@ seront supprimés.";
+"Trasferimenti" = "Transferts";
+"Velocità, avanzamento e attività in tempo reale." = "Vitesse, progression et activité en temps réel.";
+"Velocità attuale" = "Vitesse actuelle";
+"Trasferimenti attivi" = "Transferts actifs";
+"Trasferiti nella sessione" = "Transféré cette session";
+"Nessun file in trasferimento" = "Aucun fichier en cours de transfert";
+"ETA %llds" = "Temps restant %llds";
