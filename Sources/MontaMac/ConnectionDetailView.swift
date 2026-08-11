@@ -13,7 +13,10 @@ struct ConnectionDetailView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("CONNESSIONE REMOTA").font(.caption.weight(.bold)).foregroundStyle(.secondary)
                         Text(connection.name).font(.largeTitle.weight(.bold))
-                        Label { Text(LocalizedStringKey(status.message)) } icon: { Image(systemName: isMounted ? "checkmark.circle.fill" : "circle.fill") }.foregroundStyle(isMounted ? .green : .secondary)
+                        Label {
+                            if case let .failed(message) = status { Text(LocalizedStringKey(message)) }
+                            else { Text(LocalizedStringKey(status.localizationKey)) }
+                        } icon: { Image(systemName: isMounted ? "checkmark.circle.fill" : "circle.fill") }.foregroundStyle(isMounted ? .green : .secondary)
                     }
                     Spacer()
                     Menu { Button("Modifica", action: viewModel.editSelected); Button("Apri nel Finder", action: viewModel.openInFinder); Button("Log", action: { isLogPresented = true }) } label: { Image(systemName: "ellipsis.circle").font(.title2) }

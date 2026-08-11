@@ -2,11 +2,13 @@ import SwiftUI
 import MontaMacCore
 
 struct MainWindowView: View {
+    @EnvironmentObject private var settings: AppSettings
     @StateObject private var viewModel = AppViewModel()
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     @State private var isHelpPresented = false
     @State private var isRequirementsPresented = false
     @State private var isDeleteConfirmationPresented = false
+    @State private var isIssueCenterPresented = false
     private var onboardingBinding: Binding<Bool> { Binding(get: { !hasSeenOnboarding }, set: { if !$0 { hasSeenOnboarding = true } }) }
 
     var body: some View {
@@ -45,6 +47,16 @@ struct MainWindowView: View {
         .sheet(isPresented: onboardingBinding) { OnboardingView(isPresented: onboardingBinding) }
         .sheet(isPresented: $isHelpPresented) { HelpView() }
         .sheet(isPresented: $isRequirementsPresented) { RequirementsView() }
+        .sheet(isPresented: $isIssueCenterPresented) {
+            IssueCenterView(
+                issueCenter: viewModel.issueCenter,
+                connections: viewModel.connections,
+                statuses: viewModel.coordinator.statuses,
+                logs: viewModel.coordinator.logs,
+                onRecovery: recover
+            )
+            .environmentObject(settings)
+        }
         .confirmationDialog("Eliminare il profilo?", isPresented: $isDeleteConfirmationPresented, titleVisibility: .visible) {
             Button("Elimina profilo", role: .destructive, action: viewModel.removeSelected)
             Button("Annulla", role: .cancel) { }
@@ -52,6 +64,17 @@ struct MainWindowView: View {
             Text("La cartella locale e i file non verranno eliminati.")
         }
         .focusedSceneValue(\.menuActions, menuActions)
+        .overlay(alignment: .top) {
+            if let issue = viewModel.issueCenter.banner {
+                IssueBanner(
+                    issue: issue,
+                    message: localizedMessage(issue),
+                    onOpen: { isIssueCenterPresented = true },
+                    onDismiss: viewModel.issueCenter.dismissBanner
+                )
+                .padding(12)
+            }
+        }
     }
 
     private func presentRequirementsIfNeeded() {
@@ -78,5 +101,15 @@ struct MainWindowView: View {
             showOnboarding: { hasSeenOnboarding = false },
             showDiagnostics: { viewModel.showDashboard = false }
         )
+    }
+
+    private func localizedMessage(_ issue: AppIssue) -> String {
+        String(format: settings.localized(issue.code.rawValue), locale: settings.locale, arguments: issue.arguments)
+    }
+
+    private func recover(_ issue: AppIssue) {
+        guard let profileID = issue.profileID,
+              let connection = viewModel.connections.first(where: { $0.id == profileID }) else { return }
+        viewModel.mount(connection)
     }
 }

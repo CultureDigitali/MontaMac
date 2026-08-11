@@ -13,4 +13,12 @@ final class SensitiveLogRedactorTests: XCTestCase {
         XCTAssertFalse(redacted.contains(connection.mountPath))
         XCTAssertTrue(redacted.contains("[dato protetto]"))
     }
+
+    func testRedactsAdditionalRuntimeSecretsBeforePersistence() {
+        let text = "failure password-123 token-456"
+
+        let redacted = SensitiveLogRedactor.redact(text, secrets: ["password-123", "token-456"])
+
+        XCTAssertEqual(redacted, "failure [dato protetto] [dato protetto]")
+    }
 }
