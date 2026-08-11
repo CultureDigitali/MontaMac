@@ -176,3 +176,7 @@
 "Trasferiti nella sessione" = "Transferred this session";
 "Nessun file in trasferimento" = "No file transferring";
 "ETA %llds" = "ETA %llds";
+"Aggiornamenti" = "Updates";
+"Controlla automaticamente" = "Check automatically";
+"Controlla aggiornamenti…" = "Check for updates…";
+"Gli aggiornamenti automatici saranno disponibili nella release firmata." = "Automatic updates will be available in the signed release.";

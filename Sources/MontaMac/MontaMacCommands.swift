@@ -3,9 +3,15 @@ import MontaMacCore
 
 struct MontaMacCommands: Commands {
     @ObservedObject var settings: AppSettings
+    @ObservedObject var updates: UpdateController
     @FocusedValue(\.menuActions) private var actions
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button(settings.localized("Controlla aggiornamenti…")) { updates.checkForUpdates() }
+                .disabled(!updates.isConfigured)
+        }
+
         CommandGroup(replacing: .newItem) {
             Button(settings.localized("Nuovo profilo")) { actions?.newProfile() }
                 .keyboardShortcut("n", modifiers: .command)

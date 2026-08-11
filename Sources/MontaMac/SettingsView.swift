@@ -3,6 +3,7 @@ import MontaMacCore
 
 struct SettingsView: View {
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var updates: UpdateController
     @State private var requirements = RequirementChecker().check()
     @State private var isCreditsPresented = false
 
@@ -62,10 +63,28 @@ struct SettingsView: View {
                 )
                 Button("Crediti") { isCreditsPresented = true }
             }
+
+            Section("Aggiornamenti") {
+                Toggle("Controlla automaticamente", isOn: Binding(
+                    get: { settings.automaticUpdateChecks },
+                    set: {
+                        settings.setAutomaticUpdateChecks($0)
+                        updates.setAutomaticChecks($0)
+                    }
+                ))
+                .disabled(!updates.isConfigured)
+                Button("Controlla aggiornamenti…", action: updates.checkForUpdates)
+                    .disabled(!updates.isConfigured)
+                if !updates.isConfigured {
+                    Text("Gli aggiornamenti automatici saranno disponibili nella release firmata.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
         .padding(20)
         .frame(width: 520)
         .sheet(isPresented: $isCreditsPresented) { CreditsView() }
+        .onAppear { updates.setAutomaticChecks(settings.automaticUpdateChecks) }
     }
 }

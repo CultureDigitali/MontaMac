@@ -176,3 +176,7 @@
 "Trasferiti nella sessione" = "Transféré cette session";
 "Nessun file in trasferimento" = "Aucun fichier en cours de transfert";
 "ETA %llds" = "Temps restant %llds";
+"Aggiornamenti" = "Mises à jour";
+"Controlla automaticamente" = "Vérifier automatiquement";
+"Controlla aggiornamenti…" = "Rechercher les mises à jour…";
+"Gli aggiornamenti automatici saranno disponibili nella release firmata." = "Les mises à jour automatiques seront disponibles dans la version signée.";
