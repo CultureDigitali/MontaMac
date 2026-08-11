@@ -38,4 +38,20 @@ final class AppSettingsTests: XCTestCase {
 
         XCTAssertEqual(settings.localized("Hello", bundle: bundle), "Bonjour")
     }
+
+    func testReliabilityAndCachePreferencesPersist() {
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let settings = AppSettings(defaults: defaults)
+
+        settings.setAutomaticReconnect(false)
+        settings.setDefaultCacheLimit(.twentyFiveGB)
+        settings.setReservedFreeSpaceGB(9)
+        settings.setAutomaticUpdateChecks(false)
+
+        let reloaded = AppSettings(defaults: defaults)
+        XCTAssertFalse(reloaded.automaticReconnect)
+        XCTAssertEqual(reloaded.defaultCacheLimit, .twentyFiveGB)
+        XCTAssertEqual(reloaded.reservedFreeSpaceGB, 9)
+        XCTAssertFalse(reloaded.automaticUpdateChecks)
+    }
 }

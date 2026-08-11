@@ -28,6 +28,8 @@ public final class MountCoordinator: ObservableObject {
     private let recoveryPolicy: MountRecoveryPolicy
     private let sleeper: Sleeper
     private let healthCheckInterval: TimeInterval?
+    private let cachePolicyResolver: CachePolicyResolver
+    private let automaticReconnectEnabled: () -> Bool
 
     public init(
         credentials: CredentialStoring = CredentialStore(),
@@ -37,7 +39,9 @@ public final class MountCoordinator: ObservableObject {
         cacheRoot: URL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("MontaMac", isDirectory: true),
         recoveryPolicy: MountRecoveryPolicy = MountRecoveryPolicy(),
         sleeper: @escaping Sleeper = { seconds in try? await Task.sleep(for: .seconds(seconds)) },
-        healthCheckInterval: TimeInterval? = 5
+        healthCheckInterval: TimeInterval? = 5,
+        cachePolicyResolver: CachePolicyResolver = CachePolicyResolver(),
+        automaticReconnectEnabled: @escaping () -> Bool = { true }
     ) {
         self.credentials = credentials
         self.rclone = rclone
@@ -47,6 +51,8 @@ public final class MountCoordinator: ObservableObject {
         self.recoveryPolicy = recoveryPolicy
         self.sleeper = sleeper
         self.healthCheckInterval = healthCheckInterval
+        self.cachePolicyResolver = cachePolicyResolver
+        self.automaticReconnectEnabled = automaticReconnectEnabled
     }
 
     deinit {
@@ -97,7 +103,7 @@ public final class MountCoordinator: ObservableObject {
             transferTotals[connection.id] = 0
             transferTrackers[connection.id] = TransferProgressTracker()
             statisticsBuffers[connection.id] = ""
-            let process = try rclone.startMount(arguments: rclone.mountArguments(for: connection, configURL: config, cacheDirectory: cache)) { [weak self] output in
+            let process = try rclone.startMount(arguments: rclone.mountArguments(for: connection, configURL: config, cacheDirectory: cache, cachePolicy: cachePolicyResolver.policy(for: connection))) { [weak self] output in
                 Task { @MainActor [weak self] in self?.consumeMountOutput(output, for: connection) }
             }
             let token = UUID()
@@ -178,6 +184,10 @@ public final class MountCoordinator: ObservableObject {
 
     private func scheduleRecovery(for connection: RemoteConnection, reason: String) {
         guard intendedMounted.contains(connection.id) else { return }
+        guard automaticReconnectEnabled() else {
+            stopRecoveryAndFail(connection, reason)
+            return
+        }
         let attempt = retryCounts[connection.id, default: 0] + 1
         guard let delay = recoveryPolicy.delay(forAttempt: attempt) else {
             stopRecoveryAndFail(connection, "Riconnessione non riuscita: \(reason)")

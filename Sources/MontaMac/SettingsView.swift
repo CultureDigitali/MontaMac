@@ -19,6 +19,35 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Affidabilità") {
+                Toggle("Riconnessione automatica", isOn: Binding(
+                    get: { settings.automaticReconnect },
+                    set: { settings.setAutomaticReconnect($0) }
+                ))
+            }
+
+            Section("Cache") {
+                Picker("Limite predefinito", selection: Binding(
+                    get: { settings.defaultCacheLimit },
+                    set: { settings.setDefaultCacheLimit($0) }
+                )) {
+                    ForEach(CacheLimit.allCases) { limit in
+                        Text(LocalizedStringKey(limit.titleKey)).tag(limit)
+                    }
+                }
+                Stepper(
+                    "Spazio libero riservato: \(settings.reservedFreeSpaceGB) GB",
+                    value: Binding(
+                        get: { settings.reservedFreeSpaceGB },
+                        set: { settings.setReservedFreeSpaceGB($0) }
+                    ),
+                    in: 1...100
+                )
+                Text("Ogni profilo può usare un limite diverso.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Requisiti di sistema") {
                 ForEach(requirements) { requirement in
                     LabeledContent(requirement.title, value: requirement.isInstalled ? "Installato" : "Da installare")

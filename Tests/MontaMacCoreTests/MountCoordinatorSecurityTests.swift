@@ -98,6 +98,35 @@ final class MountCoordinatorSecurityTests: XCTestCase {
         XCTAssertEqual(coordinator.retryAttempt(for: connection), 0)
     }
 
+    func testUnexpectedExitDoesNotRetryWhenAutomaticReconnectIsDisabled() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let mountPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("MontaMacTests/\(UUID().uuidString)")
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: mountPath)
+        }
+        let rclone = FakeRcloneService()
+        let coordinator = MountCoordinator(
+            credentials: FakeCredentials(), rclone: rclone,
+            monitor: FakeMountMonitor(isMounted: false, waitResult: true),
+            configurationDirectory: root.appendingPathComponent("configs"),
+            cacheRoot: root.appendingPathComponent("cache"),
+            recoveryPolicy: MountRecoveryPolicy(delays: [0]),
+            sleeper: { _ in }, healthCheckInterval: nil,
+            automaticReconnectEnabled: { false }
+        )
+        let connection = makeConnection(mountPath: mountPath.path)
+
+        await coordinator.mount(connection)
+        rclone.processes[0].exit(9)
+        for _ in 0..<8 { await Task.yield() }
+
+        XCTAssertEqual(rclone.startCount, 1)
+        guard case .failed = coordinator.status(for: connection) else {
+            return XCTFail("Expected a terminal failure")
+        }
+    }
+
     func testManualUnmountCancelsRecoveryAndNeverStartsAnotherProcess() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let mountPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("MontaMacTests/\(UUID().uuidString)")
@@ -205,7 +234,7 @@ private final class FakeRcloneService: RcloneServicing {
     var processes: [FakeMountProcess] = []
     private var outputHandler: (@Sendable (String) -> Void)?
 
-    func mountArguments(for connection: RemoteConnection, configURL: URL, cacheDirectory: URL) -> [String] { [] }
+    func mountArguments(for connection: RemoteConnection, configURL: URL, cacheDirectory: URL, cachePolicy: CachePolicy) -> [String] { [] }
     func startMount(arguments: [String], output: @escaping @Sendable (String) -> Void) throws -> any MountProcessHandling {
         startCount += 1
         if shouldFailStart { throw TestError.startFailed }

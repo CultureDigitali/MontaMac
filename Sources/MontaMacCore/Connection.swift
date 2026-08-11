@@ -24,8 +24,9 @@ public struct RemoteConnection: Codable, Identifiable, Equatable, Sendable {
     public var profileGroup: String
     public var isFavorite: Bool
     public var lastUsedAt: Date?
+    public var cacheLimit: CacheLimit?
 
-    public init(id: UUID = UUID(), name: String, protocolType: RemoteProtocol, host: String, port: Int, username: String, remotePath: String, mountPath: String, profileGroup: String = RemoteConnection.defaultProfileGroup, isFavorite: Bool = false, lastUsedAt: Date? = nil) {
+    public init(id: UUID = UUID(), name: String, protocolType: RemoteProtocol, host: String, port: Int, username: String, remotePath: String, mountPath: String, profileGroup: String = RemoteConnection.defaultProfileGroup, isFavorite: Bool = false, lastUsedAt: Date? = nil, cacheLimit: CacheLimit? = nil) {
         self.id = id
         self.name = name
         self.protocolType = protocolType
@@ -37,6 +38,7 @@ public struct RemoteConnection: Codable, Identifiable, Equatable, Sendable {
         self.profileGroup = Self.normalizedProfileGroup(profileGroup)
         self.isFavorite = isFavorite
         self.lastUsedAt = lastUsedAt
+        self.cacheLimit = cacheLimit
     }
 
     public static func blank(protocolType: RemoteProtocol) -> RemoteConnection {
@@ -65,7 +67,7 @@ public struct RemoteConnection: Codable, Identifiable, Equatable, Sendable {
     public var remoteSpec: String { "\(rcloneRemoteName):\(remotePath.hasPrefix("/") ? remotePath : "/\(remotePath)")" }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, protocolType, host, port, username, remotePath, mountPath, profileGroup, isFavorite, lastUsedAt
+        case id, name, protocolType, host, port, username, remotePath, mountPath, profileGroup, isFavorite, lastUsedAt, cacheLimit
     }
 
     public init(from decoder: Decoder) throws {
@@ -81,6 +83,7 @@ public struct RemoteConnection: Codable, Identifiable, Equatable, Sendable {
         profileGroup = Self.normalizedProfileGroup(try container.decodeIfPresent(String.self, forKey: .profileGroup) ?? Self.defaultProfileGroup)
         isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
+        cacheLimit = try container.decodeIfPresent(CacheLimit.self, forKey: .cacheLimit)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -96,6 +99,7 @@ public struct RemoteConnection: Codable, Identifiable, Equatable, Sendable {
         try container.encode(Self.normalizedProfileGroup(profileGroup), forKey: .profileGroup)
         try container.encode(isFavorite, forKey: .isFavorite)
         try container.encodeIfPresent(lastUsedAt, forKey: .lastUsedAt)
+        try container.encodeIfPresent(cacheLimit, forKey: .cacheLimit)
     }
 
     public static func normalizedProfileGroup(_ value: String) -> String {

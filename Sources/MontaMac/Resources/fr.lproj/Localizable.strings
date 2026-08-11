@@ -150,3 +150,12 @@
 "MontaMac non ha registrato errori recenti." = "MontaMac n’a enregistré aucun problème récent.";
 "Riprova" = "Réessayer";
 "Apri" = "Ouvrir";
+"Limite cache" = "Limite du cache";
+"Predefinito" = "Par défaut";
+"Senza limite" = "Sans limite";
+"Affidabilità" = "Fiabilité";
+"Riconnessione automatica" = "Reconnexion automatique";
+"Cache" = "Cache";
+"Limite predefinito" = "Limite par défaut";
+"Spazio libero riservato: %lld GB" = "Espace libre réservé : %lld Go";
+"Ogni profilo può usare un limite diverso." = "Chaque profil peut utiliser une limite différente.";

@@ -9,7 +9,7 @@ public final class RcloneService: RcloneServicing {
 
     public var isAvailable: Bool { FileManager.default.isExecutableFile(atPath: rcloneURL.path) }
 
-    public func mountArguments(for connection: RemoteConnection, configURL: URL, cacheDirectory: URL) -> [String] {
+    public func mountArguments(for connection: RemoteConnection, configURL: URL, cacheDirectory: URL, cachePolicy: CachePolicy) -> [String] {
         [
             "nfsmount", connection.remoteSpec, connection.mountPath,
             "--config", configURL.path,
@@ -22,7 +22,7 @@ public final class RcloneService: RcloneServicing {
             "--stats-one-line",
             "--stats-log-level", "NOTICE",
             "--umask", "077",
-        ]
+        ] + cachePolicy.rcloneArguments
     }
 
     @discardableResult public func startMount(arguments: [String], output: @escaping @Sendable (String) -> Void) throws -> any MountProcessHandling {

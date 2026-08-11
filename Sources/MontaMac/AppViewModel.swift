@@ -17,7 +17,7 @@ final class AppViewModel: ObservableObject {
     @Published var refreshingStatistics: Set<UUID> = []
     @Published var profileScope: ProfileScope = .all
     @Published var profileQuery = ""
-    let coordinator = MountCoordinator()
+    let coordinator: MountCoordinator
     let issueCenter: IssueCenter
     private let store = ConnectionStore()
     private let credentials = CredentialStore()
@@ -31,6 +31,7 @@ final class AppViewModel: ObservableObject {
     }
 
     init(issueCenter: IssueCenter = IssueCenter()) {
+        coordinator = MountCoordinator(automaticReconnectEnabled: { AppSettings.automaticReconnectValue() })
         self.issueCenter = issueCenter
         do { connections = try store.load() }
         catch {
