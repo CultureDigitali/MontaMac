@@ -134,10 +134,13 @@ public final class MountCoordinator: ObservableObject {
             transferTrackers[connection.id] = TransferProgressTracker()
             jsonParsers[connection.id] = RcloneJSONLogParser()
             transferSnapshots[connection.id] = .idle
-            let process = try rclone.startMount(arguments: rclone.mountArguments(for: connection, configURL: config, cacheDirectory: cache, cachePolicy: cachePolicyResolver.policy(for: connection))) { [weak self] output in
-                Task { @MainActor [weak self] in self?.consumeMountOutput(output, for: connection) }
-            }
             let token = UUID()
+            let process = try rclone.startMount(arguments: rclone.mountArguments(for: connection, configURL: config, cacheDirectory: cache, cachePolicy: cachePolicyResolver.policy(for: connection))) { [weak self] output in
+                Task { @MainActor [weak self] in
+                    guard let self, self.processTokens[connection.id] == token else { return }
+                    self.consumeMountOutput(output, for: connection)
+                }
+            }
             processes[connection.id] = process
             processTokens[connection.id] = token
             process.observeTermination { [weak self] status in
@@ -145,8 +148,11 @@ public final class MountCoordinator: ObservableObject {
                     self?.processTerminated(connection, token: token, status: status)
                 }
             }
-            if await monitor.waitUntilMounted(at: mountURL, timeout: 12) {
-                guard processTokens[connection.id] == token, intendedMounted.contains(connection.id) else { return }
+            let mounted = await monitor.waitUntilMounted(at: mountURL, timeout: 12)
+            // A process may exit and recovery may start while the probe is suspended.
+            // Never allow a stale probe to mutate or terminate its replacement.
+            guard processTokens[connection.id] == token, intendedMounted.contains(connection.id) else { return }
+            if mounted {
                 statuses[connection.id] = .mounted
                 if !isRecovery { retryCounts[connection.id] = 0 }
                 append("Drive montato correttamente.", for: connection)
@@ -203,6 +209,29 @@ public final class MountCoordinator: ObservableObject {
     public func cancelRecovery(for connection: RemoteConnection) {
         retryTasks.removeValue(forKey: connection.id)?.cancel()
         retryCounts[connection.id] = 0
+    }
+
+    /// Release owned mounts before application exit. External mounts that were
+    /// merely discovered by reconcile() are intentionally not claimed here.
+    public func shutdown() {
+        retryTasks.values.forEach { $0.cancel() }
+        healthTasks.values.forEach { $0.cancel() }
+        stabilityTasks.values.forEach { $0.cancel() }
+        retryTasks.removeAll()
+        healthTasks.removeAll()
+        stabilityTasks.removeAll()
+        intendedMounted.removeAll()
+        for (id, process) in processes {
+            processTokens.removeValue(forKey: id)
+            if process.isRunning { process.terminate() }
+            if let connection = connectionsByID[id] {
+                do { try rclone.unmount(at: URL(fileURLWithPath: connection.mountPath)) }
+                catch { append(SensitiveLogRedactor.redact(error.localizedDescription, for: connection), for: connection) }
+                statuses[id] = .disconnected
+                removeConfiguration(for: connection)
+            }
+        }
+        processes.removeAll()
     }
 
     public func clearCache(for connection: RemoteConnection) async throws {

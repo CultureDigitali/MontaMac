@@ -1,7 +1,6 @@
 #!/bin/zsh
 set -eu
 
-APP_PATH="${3}/Applications/MontaMac.app"
-if [[ -d "$APP_PATH" ]]; then
-  /usr/bin/open "$APP_PATH"
-fi
+# Do not launch a GUI app from the privileged Installer process.
+# The user starts MontaMac from Applications in their own session.
+exit 0

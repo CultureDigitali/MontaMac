@@ -15,11 +15,10 @@ public struct RequirementChecker {
     }
     public static func installationCommand(for statuses: [RequirementStatus]) -> String? {
         let missing = Set(statuses.filter { !$0.isInstalled }.map(\.id)); var commands: [String] = []
-        let secureCurl = "/usr/bin/curl --fail --silent --show-error --location --proto '=https' --tlsv1.2"
-        if missing.contains("brew") { commands.append("/bin/bash -c \"$(\(secureCurl) https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"") }
-        // The official rclone documentation warns that its Homebrew package may
-        // omit mount support on macOS, therefore use the signed upstream installer.
-        if missing.contains("rclone") { commands.append("\(secureCurl) https://rclone.org/install.sh | sudo /bin/bash") }
+        // Avoid automatically executing mutable network scripts with elevated
+        // privileges. Users install Homebrew separately from its official site.
+        if missing.contains("brew") { return nil }
+        if missing.contains("rclone") { commands.append("brew install rclone") }
         if missing.contains("fuse") { commands.append("HOMEBREW_NO_INSTALL_CLEANUP=1 brew install --cask fuse-t") }
         return commands.isEmpty ? nil : commands.joined(separator: " && ")
     }

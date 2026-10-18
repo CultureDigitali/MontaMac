@@ -5,3 +5,8 @@ if [[ "$(sw_vers -productVersion | cut -d. -f1)" -lt 15 ]]; then
   echo "MontaMac richiede macOS 15 o successivo." >&2
   exit 1
 fi
+
+if [[ "$(uname -m)" != arm64 ]]; then
+  echo "Questa build di MontaMac richiede un Mac Apple Silicon." >&2
+  exit 1
+fi
