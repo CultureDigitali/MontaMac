@@ -17,7 +17,8 @@ final class ConnectionTests: XCTestCase {
     }
 
     func testDisplayNameMayContainConfigurationCharacters() {
-        let connection = RemoteConnection(name: "Nome ] = [ libero", protocolType: .sftp, host: "files.example.com", port: 22, username: "anna", remotePath: "/", mountPath: "/Users/anna/Archivio")
+        let path = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("MontaMac/Archivio").path
+        let connection = RemoteConnection(name: "Nome ] = [ libero", protocolType: .sftp, host: "files.example.com", port: 22, username: "anna", remotePath: "/", mountPath: path)
         XCTAssertNil(connection.validationError)
     }
 }
