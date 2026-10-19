@@ -6,7 +6,8 @@ Security updates currently target the latest MontaMac release.
 
 | Version | Supported |
 | --- | --- |
-| 2.1.x | Yes |
+| 2.2.x | Yes |
+| 2.1.x | No |
 | Earlier versions | No |
 
 ## Reporting a vulnerability

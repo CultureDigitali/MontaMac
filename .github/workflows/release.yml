@@ -13,7 +13,6 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 30
     env:
-      KEYCHAIN_PATH: ${{ runner.temp }}/montamac-release.keychain-db
       KEYCHAIN_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
       SPARKLE_FEED_URL: https://github.com/CultureDigitali/MontaMac/releases/latest/download/appcast.xml
     steps:
@@ -32,6 +31,8 @@ jobs:
           INSTALLER_P12: ${{ secrets.APPLE_INSTALLER_P12_BASE64 }}
           INSTALLER_P12_PASSWORD: ${{ secrets.APPLE_INSTALLER_P12_PASSWORD }}
         run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/montamac-release.keychain-db"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
           test -n "$APP_P12" && test -n "$INSTALLER_P12"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -56,6 +57,8 @@ jobs:
           MONTAMAC_SPARKLE_FEED_URL="$SPARKLE_FEED_URL" \
           MONTAMAC_SPARKLE_PUBLIC_KEY="$SPARKLE_PUBLIC_KEY" \
           zsh Scripts/build-pkg.sh
+          test "$(uname -m)" = arm64
+          /usr/bin/lipo -archs MontaMac.app/Contents/MacOS/MontaMac | grep -qw arm64
           codesign --verify --deep --strict --verbose=2 MontaMac.app
           pkgutil --check-signature "dist/MontaMac-${GITHUB_REF_NAME#v}.pkg"
 
@@ -86,6 +89,11 @@ jobs:
           .build/artifacts/sparkle/Sparkle/bin/generate_appcast --ed-key-file "$RUNNER_TEMP/sparkle-private-key" --download-url-prefix "https://github.com/CultureDigitali/MontaMac/releases/download/$GITHUB_REF_NAME/" dist
           (cd dist && shasum -a 256 "MontaMac-$VERSION.pkg" > "MontaMac-$VERSION.pkg.sha256")
           (cd dist && shasum -a 256 "MontaMac-$VERSION.zip" > "MontaMac-$VERSION.zip.sha256")
+
+      - name: Verify Sparkle signature against the shipped app
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          swift Scripts/verify-sparkle-release.swift MontaMac.app "dist/MontaMac-$VERSION.zip" dist/appcast.xml
 
       - name: Publish GitHub release
         env:

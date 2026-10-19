@@ -22,14 +22,18 @@ final class RequirementCheckerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: scriptURL.path))
     }
 
-    func testRcloneDownloadRequiresHTTPSAndFailsClosed() throws {
+    func testRcloneInstallationDoesNotExecuteRemoteScriptsAsRoot() throws {
         let statuses = RequirementChecker(executables: ["brew", "fuse-t"]).check()
         let command = try XCTUnwrap(RequirementChecker.installationCommand(for: statuses))
 
-        XCTAssertTrue(command.contains("--proto '=https'"))
-        XCTAssertTrue(command.contains("--tlsv1.2"))
-        XCTAssertTrue(command.contains("--fail"))
-        XCTAssertTrue(command.contains("https://rclone.org/install.sh"))
+        XCTAssertEqual(command, "brew install rclone")
+        XCTAssertFalse(command.contains("sudo"))
+        XCTAssertFalse(command.contains("curl"))
+    }
+
+    func testHomebrewMissingDoesNotOfferUnreviewedRootScript() {
+        let statuses = RequirementChecker(executables: ["fuse-t"]).check()
+        XCTAssertNil(RequirementChecker.installationCommand(for: statuses))
     }
 
     func testFUSEDetectionAcceptsCurrentApplicationPath() {

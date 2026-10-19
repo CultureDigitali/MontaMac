@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import MontaMacCore
 
@@ -71,6 +72,9 @@ struct MainWindowView: View {
         .frame(minWidth: 860, minHeight: 540)
         .onChange(of: viewModel.selection) { _, newValue in if newValue != nil { viewModel.utilityDestination = nil } }
         .onAppear { presentRequirementsIfNeeded() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            viewModel.coordinator.shutdown()
+        }
         .onChange(of: hasSeenOnboarding) { _, isComplete in
             if isComplete { presentRequirementsIfNeeded() }
         }
